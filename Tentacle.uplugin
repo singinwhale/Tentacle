@@ -40,6 +40,19 @@
 			"Name": "TentacleEditor",
 			"Type": "UncookedOnly",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "TentacleMVVM",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"Optional": true
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ModelViewViewModel",
+			"Enabled": true,
+			"Optional": true
 		}
 	]
 }
