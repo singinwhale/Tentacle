@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "TentacleTemplates.h"
@@ -45,9 +45,17 @@ namespace DI
 
 	// nullable types
 	static_assert(std::is_same_v<TBindingInstPtrBaseType<TObjectPtr<USimpleUService>>::Type, USimpleUService>, "UObjects should be optionally passed as TObjectPtr");
+	static_assert(std::is_same_v<TBindingInstPtrBaseType<const TObjectPtr<USimpleUService>&>::Type, USimpleUService>, "UObjects should be optionally passed as TObjectPtr");
+	static_assert(std::is_same_v<TBindingInstPtrBaseType<TObjectPtr<USimpleUService>&>::Type, USimpleUService>, "UObjects should be optionally passed as TObjectPtr");
 	static_assert(std::is_same_v<TBindingInstPtrBaseType<TObjectPtr<USimpleInterfaceImplementation>>::Type, USimpleInterfaceImplementation>, "UObjects that implement an UInterface should be optionally passed as TObjectPtr");
 	static_assert(std::is_same_v<TBindingInstPtrBaseType<TScriptInterface<ISimpleInterface>>::Type, ISimpleInterface>, "Interfaces should be optionally passed as TScriptInterface");
+	static_assert(std::is_same_v<TBindingInstPtrBaseType<const TScriptInterface<ISimpleInterface>&>::Type, ISimpleInterface>, "Interfaces should be optionally passed as TScriptInterface");
+	static_assert(std::is_same_v<TBindingInstPtrBaseType<TScriptInterface<ISimpleInterface>&>::Type, ISimpleInterface>, "Interfaces should be optionally passed as TScriptInterface");
 	static_assert(std::is_same_v<TBindingInstPtrBaseType<TOptional<FSimpleUStructService>>::Type, FSimpleUStructService>, "UStructs should be optionally passed as TOptional");
+	static_assert(std::is_same_v<TBindingInstPtrBaseType<const TOptional<FSimpleUStructService>&>::Type, FSimpleUStructService>, "UStructs should be optionally passed as TOptional");
+	static_assert(std::is_same_v<TBindingInstPtrBaseType<TOptional<FSimpleUStructService>&>::Type, FSimpleUStructService>, "UStructs should be optionally passed as TOptional");
 	static_assert(std::is_same_v<TBindingInstPtrBaseType<TSharedPtr<FSimpleNativeService>>::Type, FSimpleNativeService>, "Native Types should be optionally passed as SharedPtr");
+	static_assert(std::is_same_v<TBindingInstPtrBaseType<const TSharedPtr<FSimpleNativeService>&>::Type, FSimpleNativeService>, "Native Types should be optionally passed as SharedPtr");
+	static_assert(std::is_same_v<TBindingInstPtrBaseType<TSharedPtr<FSimpleNativeService>&>::Type, FSimpleNativeService>, "Native Types should be optionally passed as SharedPtr");
 
 }

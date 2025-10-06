@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #pragma once
@@ -140,11 +140,29 @@ namespace DI
 	template <class T>
 	struct TBindingInstPtrBaseType<const T&>
 	{
-		using Type = typename TDecay<T>::Type;
+		using Type = typename TBindingInstPtrBaseType<typename TDecay<T>::Type>::Type;
+	};
+
+	template <class T>
+	struct TBindingInstPtrBaseType<T&>
+	{
+		using Type = typename TBindingInstPtrBaseType<typename TDecay<T>::Type>::Type;
 	};
 
 	template <class T>
 	struct TBindingInstPtrBaseType<TScriptInterface<T>>
+	{
+		using Type = typename TScriptInterface<T>::InterfaceType;
+	};
+
+	template <class T>
+	struct TBindingInstPtrBaseType<TScriptInterface<T>&>
+	{
+		using Type = typename TScriptInterface<T>::InterfaceType;
+	};
+
+	template <class T>
+	struct TBindingInstPtrBaseType<const TScriptInterface<T>&>
 	{
 		using Type = typename TScriptInterface<T>::InterfaceType;
 	};
