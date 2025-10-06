@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Contexts/DiBlueprintFunctionLibrary.h"
@@ -277,7 +277,12 @@ DEFINE_FUNCTION(UDiBlueprintFunctionLibrary::execTryResolveInterface)
 	{
 		FName BindingName = BindingNameProperty;
 		P_NATIVE_BEGIN;
-			TSharedPtr<DI::FBinding> Binding = DiContextInterface->GetDiContainer().FindBinding(DI::FBindingId(DI::FTypeId(InterfaceType.Get()), BindingName));
+			DI::FBindingId BindingId(DI::FTypeId(InterfaceType.Get()), BindingName);
+			TSharedPtr<DI::FBinding> Binding = DiContextInterface->GetDiContainer().FindBinding(BindingId);
+			if (!Binding)
+			{
+				UE_LOG(LogDependencyInjection, Error, TEXT("Failed to resolve Interface Binding %s"), *BindingId.ToString());
+			}
 			TSharedPtr<DI::FUInterfaceBinding> InterfaceBinding = StaticCastSharedPtr<DI::FUInterfaceBinding>(Binding);
 			(*static_cast<UObject**>(RESULT_PARAM)) = InterfaceBinding ? InterfaceBinding->Resolve().GetObject() : nullptr;
 		P_NATIVE_END;
