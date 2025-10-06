@@ -8,10 +8,7 @@ void AExampleActor::ComponentRegistered(UActorComponent* Component)
 	// uncomment if you have the engine mod
 	// Super::ComponentRegistered(Component); 
 	
-	if (IAutoInjectableInterface* AutoInjectable = Cast<IAutoInjectableInterface>(Component))
-	{
-		IAutoInjectableInterface::Execute_AutoInject(Component, this);
-	}
+	DI::TryAutoInject(this, Component);
 }
 
 DI::FChainedDiContainer& AExampleActor::GetDiContainer()

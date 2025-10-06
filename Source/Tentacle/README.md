@@ -112,10 +112,7 @@ void AExampleActor::PostInitializeComponents()
         false,
         [this](UActorComponent* ActorComponent)
         {
-            if (IAutoInjectable* AutoInjectable = Cast<IAutoInjectable>(Component))
-            {
-                IAutoInjectable::Execute_AutoInject(Component, this);
-            }
+            DI::TryAutoInject(this, ActorComponent);
         }
     );
 }
@@ -134,23 +131,20 @@ void UExampleComponent::BeginPlay()
 `DI::RequestAutoInject` tries to find a containing `IAutoInjector` by walking up the ownership hierarchy.
 
 Alternatively, you can mod the engine to add an event for when a component registers. 
-The Actor is already notified 
+The Actor is already notified in `AActor.h`
+which you can call from `AActor::HandleRegisterComponentWithWorld` to allow actors to be 
+notified when a component is registered.
 
-in `AActor.h`
+Add this to AActor and call it from `HandleRegisterComponentWithWorld`
 ```c++
 ENGINE_API virtual void ComponentRegistered(UActorComponent* Component);
 ```
-which you can call from `AActor::HandleRegisterComponentWithWorld` to allow actors to be 
-notified when a component is registered. 
 Actors can then always do auto dependency injection automatically:
 
 ```c++
 void AExampleActor::ComponentRegistered(UActorComponent* Component)
 {
-    if (IAutoInjectable* AutoInjectable = Cast<IAutoInjectable>(Component))
-    {
-        IAutoInjectable::Execute_AutoInject(Component, this);
-    }
+    DI::TryAutoInject(this, Component);
 }
 ```
 

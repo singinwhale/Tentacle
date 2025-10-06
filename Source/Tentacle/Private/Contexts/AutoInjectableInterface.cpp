@@ -27,10 +27,25 @@ bool DI::RequestAutoInject(TScriptInterface<IAutoInjectableInterface> AutoInject
 	IAutoInjector* AutoInjector = Cast<IAutoInjector>(DiContextInterface.GetObject());
 	if (!AutoInjector)
 	{
-		UE_LOG(LogDependencyInjection, Error, TEXT("DiContext for Injectable %s is not an AutoInjector"), *AutoInjectableObject.GetObject()->GetName());
+		UE_LOG(LogDependencyInjection, Error, TEXT("DiContext %s for Injectable %s is not an AutoInjector"), *DiContextInterface.GetObject()->GetName(), *AutoInjectableObject.GetObject()->GetName());
 		return false;
 	}
 
 	AutoInjector->RequestInitialize(AutoInjectableObject);
+	return true;
+}
+
+bool DI::TryAutoInject(TScriptInterface<IDiContextInterface> DiContext, UObject* MaybeAutoInjectableObject)
+{
+	if (!IsValid(MaybeAutoInjectableObject))
+		return false;
+
+	if (!DiContext)
+		return false;
+
+	if (!MaybeAutoInjectableObject->Implements<UAutoInjectableInterface>())
+		return false;
+
+	IAutoInjectableInterface::Execute_AutoInject(MaybeAutoInjectableObject, DiContext);
 	return true;
 }

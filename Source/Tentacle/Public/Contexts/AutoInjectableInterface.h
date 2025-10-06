@@ -35,4 +35,5 @@ namespace DI
 	 * @return true if an auto injector has been found
 	 */
 	TENTACLE_API bool RequestAutoInject(TScriptInterface<IAutoInjectableInterface> AutoInjectableObject);
+	TENTACLE_API bool TryAutoInject(TScriptInterface<IDiContextInterface> DiContext, UObject* MaybeAutoInjectableObject);
 }
