@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
@@ -30,34 +30,7 @@ namespace DI
 		template <class T>
 		TWeakFuture<EBindResult> ThenBindInstance(DI::TBindingInstRef<T> Instance, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
 		{
-			return this->template ThenBindNamedInstanceAs<T, T>(Instance, FName(NAME_None), ConflictBehavior);
-		}
-
-		/**
-		 * Binds an instance as a specific type
-		 * Keep in mind that when resolving this type, that you need to use the same type as it has been bound with.
-		 * Resolving via its parent class is not supported.
-		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
-		 */
-		template <class TBinding, class TInstance>
-		TWeakFuture<EBindResult> ThenBindInstanceAs(DI::TBindingInstRef<TInstance> Instance, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
-		{
-			return this->template ThenBindNamedInstanceAs<TBinding, TInstance>(Instance, FName(NAME_None), ConflictBehavior);
-		}
-
-		/**
-		 * Binds a named instance as its direct type
-		 * Keep in mind that when resolving this type, that you need to use the same type as it has been bound with.
-		 * Resolving via its parent class is not supported.
-		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
-		 */
-		template <class T>
-		TWeakFuture<EBindResult> ThenBindNamedInstance(
-			DI::TBindingInstRef<T> Instance,
-			const FName& InstanceName,
-			EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
-		{
-			return this->template ThenBindNamedInstanceAs<T, T>(Instance, InstanceName, ConflictBehavior);
+			return this->template ThenBindNamedInstance<T>(Instance, FName(NAME_None), ConflictBehavior);
 		}
 
 		/**
@@ -66,8 +39,8 @@ namespace DI
 		 * Resolving via its parent class is not supported.
 		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
 		 */
-		template <class TBinding, class TInstance>
-		TWeakFuture<EBindResult> ThenBindNamedInstanceAs(DI::TBindingInstRef<TInstance> Instance, const FName& InstanceName, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
+		template <class TBinding>
+		TWeakFuture<EBindResult> ThenBindNamedInstance(DI::TBindingInstRef<TBinding> Instance, const FName& InstanceName, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
 		{
 			auto [Promise, Future] = MakeWeakPromisePair<EBindResult>();
 			this->Then([Promise = MoveTemp(Promise), WeakInstance = MakeWeakBindingInstPtr<TBinding>(Instance), DiContainer = DiContainer.AsShared(), InstanceName, ConflictBehavior](TWeakFuture<TFutureValueType> CompletedValue) mutable
@@ -80,7 +53,7 @@ namespace DI
 						{
 							if (TOptional<TBindingInstRef<TBinding>> ValidInstance = ResolveWeakBindingInstPtr(WeakInstance))
 							{
-								Promise.EmplaceValue(DiContainer->Bind().template BindNamedInstanceAs<TBinding, TInstance>(*ValidInstance, InstanceName, ConflictBehavior));
+								Promise.EmplaceValue(DiContainer->Bind().template BindNamedInstance<TBinding>(*ValidInstance, InstanceName, ConflictBehavior));
 							}
 							else
 							{

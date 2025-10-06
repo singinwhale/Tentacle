@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
@@ -37,18 +37,6 @@ namespace DI
 		}
 
 		/**
-		 * Binds an instance as a specific type
-		 * Keep in mind that when resolving this type, that you need to use the same type as it has been bound with.
-		 * Resolving via its parent class is not supported.
-		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
-		 */
-		template <class TBinding, class TInstance>
-		EBindResult BindInstanceAs(DI::TBindingInstRef<TInstance> Instance, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
-		{
-			return this->BindNamedInstanceAs<TBinding, TInstance>(Instance, NAME_None, ConflictBehavior);
-		}
-
-		/**
 		 * Binds a named instance as its direct type
 		 * Keep in mind that when resolving this type, that you need to use the same type as it has been bound with.
 		 * Resolving via its parent class is not supported.
@@ -64,22 +52,6 @@ namespace DI
 			return this->RegisterBinding<T>(BindingId, Instance, ConflictBehavior);
 		}
 
-		/**
-		 * Binds a named instance as a specific type
-		 * Keep in mind that when resolving this type, that you need to use the same type as it has been bound with.
-		 * Resolving via its parent class is not supported.
-		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
-		 */
-		template <class TBinding, class TInstance>
-		EBindResult BindNamedInstanceAs(
-			DI::TBindingInstRef<TInstance> Instance,
-			const FName& InstanceName,
-			EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
-		{
-			static_assert(TIsDerivedFrom<TInstance, TBinding>::Value, "Only derived classes are allowed");
-			FBindingId BindingId = MakeBindingId<TBinding>(InstanceName);
-			return this->RegisterBinding<TInstance>(BindingId, Instance, ConflictBehavior);
-		}
 
 	private:
 		template <class T>
