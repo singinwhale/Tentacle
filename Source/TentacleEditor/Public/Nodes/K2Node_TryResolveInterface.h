@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "K2Node_TryResolveInterface.generated.h"
 
 /**
- * 
+ * Custom function node for UDiBlueprintFunctionLibrary::TryResolveInterface
  */
 UCLASS()
 class TENTACLEEDITOR_API UK2Node_TryResolveInterface : public UK2Node_CallFunction

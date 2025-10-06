@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
@@ -7,7 +7,8 @@
 #include "K2Node_BindObjectAsType.generated.h"
 
 /**
- * 
+ * Custom Node for binding an object as a specific type.
+ * Mostly used to adapt the pins depending on which kind of dependency is bound.
  */
 UCLASS()
 class TENTACLEEDITOR_API UK2Node_BindObjectAsType : public UK2Node_CallFunction

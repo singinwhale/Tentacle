@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
@@ -7,7 +7,7 @@
 #include "TentacleSettings.generated.h"
 
 /**
- * 
+ * Developer settings for the Tentacle DI System.
  */
 UCLASS(Config=Game)
 class TENTACLE_API UTentacleSettings : public UDeveloperSettings
