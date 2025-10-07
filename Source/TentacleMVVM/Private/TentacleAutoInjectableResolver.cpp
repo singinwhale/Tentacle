@@ -26,7 +26,9 @@ UObject* UTentacleAutoInjectableResolver::CreateInstance(const UClass* ExpectedT
 	return Instance;
 }
 
+#if WITH_EDITOR
 bool UTentacleAutoInjectableResolver::DoesSupportViewModelClass(const UClass* Class) const
 {
 	return Class->ImplementsInterface(UAutoInjectableInterface::StaticClass());
 }
+#endif

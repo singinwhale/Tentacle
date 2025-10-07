@@ -18,5 +18,7 @@ class TENTACLEMVVM_API UTentacleAutoInjectableResolver : public UMVVMViewModelCo
 
 public:
 	virtual UObject* CreateInstance(const UClass* ExpectedType, UUserWidget* UserWidget, const UMVVMView* View) const override;
+#if WITH_EDITOR
 	virtual bool DoesSupportViewModelClass(const UClass* Class) const override;
+#endif
 };
