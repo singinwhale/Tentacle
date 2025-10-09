@@ -30,7 +30,7 @@ namespace DI
 		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
 		 */
 		template <class T>
-		EBindResult BindInstance(DI::TBindingInstRef<T> Instance, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
+		EBindResult Instance(DI::TBindingInstRef<T> Instance, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
 		{
 			FBindingId BindingId = MakeBindingId<T>();
 			return this->RegisterBinding<T>(BindingId, Instance, ConflictBehavior);
@@ -43,7 +43,7 @@ namespace DI
 		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
 		 */
 		template <class T>
-		EBindResult BindNamedInstance(
+		EBindResult NamedInstance(
 			DI::TBindingInstRef<T> Instance,
 			const FName& InstanceName,
 			EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)

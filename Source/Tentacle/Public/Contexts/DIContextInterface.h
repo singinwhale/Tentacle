@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "AutoInjectableInterface.h"
+#include "Container/BindingHelper.h"
+#include "Container/Injector.h"
+#include "Container/ResolveHelper.h"
 #include "UObject/Interface.h"
 #include "DIContextInterface.generated.h"
 
@@ -41,6 +44,27 @@ class TENTACLE_API IDiContextInterface
 public:
 	virtual DI::FChainedDiContainer& GetDiContainer() = 0;
 	virtual const DI::FChainedDiContainer& GetDiContainer() const = 0;
+
+	/** @return The Resolve API for this context*/
+	FORCEINLINE DI::TResolveHelper<DI::FChainedDiContainer> DiResolve() const
+	{
+		return DI::TResolveHelper(GetDiContainer());
+	}
+	/** @return The Bind API for this context*/
+	FORCEINLINE DI::TBindingHelper<DI::FChainedDiContainer> DiBind()
+	{
+		return DI::TBindingHelper(GetDiContainer());
+	}
+	/** @return The Inject API for this context*/
+	FORCEINLINE DI::TInjector<const DI::FChainedDiContainer> DiInject() const
+	{
+		return DI::TInjector(GetDiContainer());
+	}
+	/** @return The Inject API for this context*/
+	FORCEINLINE DI::TInjector<DI::FChainedDiContainer> DiInject()
+	{
+		return DI::TInjector(GetDiContainer());
+	}
 };
 
 namespace DI

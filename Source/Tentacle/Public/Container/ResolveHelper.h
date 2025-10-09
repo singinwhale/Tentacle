@@ -33,13 +33,13 @@ namespace DI
 		 * @param ErrorBehavior - specified what to do if the binding is not found.
 		 * @return The UObject that is an instance of ObjectType, if it is bound.
 		 */
-		TObjectPtr<UObject> TryResolveUObjectByClass(
+		TObjectPtr<UObject> TryGetUObjectByClass(
 			UClass* ObjectType,
 			FName BindingName,
 			EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
 			FBindingId BindingId = FBindingId(FTypeId(ObjectType), BindingName);
-			return this->Resolve<UObject>(BindingId, ErrorBehavior);
+			return this->Get<UObject>(BindingId, ErrorBehavior);
 		}
 
 		/**
@@ -50,7 +50,7 @@ namespace DI
 		 * @param ErrorBehavior - specified what to do if the binding is not found.
 		 * @return
 		 */
-		bool TryResolveUStruct(
+		bool TryGetUStruct(
 			UScriptStruct* StructType,
 			void* OutStructMemory,
 			FName BindingName,
@@ -77,48 +77,48 @@ namespace DI
 		/**
 		 * Try to resolve a single instance by type.
 		 * @code
-		 * ChildContainer->Resolve().TryResolveTypeInstance<USimpleUService>(DI::EResolveErrorBehavior::AssertCheck)
+		 * ChildContainer->Resolve().TryGet<USimpleUService>(DI::EResolveErrorBehavior::AssertCheck)
 		 * @endcode
 		 * @tparam T type of the binding that it was bound with.
 		 * @param ErrorBehavior - specified what to do if the binding is not found.
 		 * @return
 		 */
 		template <class T>
-		DI::TBindingInstPtr<T> TryResolveTypeInstance(EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
+		DI::TBindingInstPtr<T> TryGet(EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
 			FBindingId BindingId = MakeBindingId<T>();
-			return this->Resolve<T>(BindingId, ErrorBehavior);
+			return this->Get<T>(BindingId, ErrorBehavior);
 		}
 
 		/**
 		 * Try to resolve multiple instances based on their type only.
 		 * @code
-		 * auto [ResolvedUService, ResolvedUInterface] = DiContainer.Resolve().TryResolveTypeInstances<USimpleUService, ISimpleInterface>();
+		 * auto [ResolvedUService, ResolvedUInterface] = DiContainer.Resolve().TryGetMany<USimpleUService, ISimpleInterface>();
 		 * @endcode
 		 * @tparam Ts - Types of the bindings that they were bound with. Only exact class matches can be resolved.
 		 * @param ErrorBehavior - specified what to do if any of the bindings are not found.
 		 * @return The bindings in the same order as the types. Failed lookups will have null values.
 		 */
 		template <class... Ts>
-		TTuple<DI::TBindingInstPtr<Ts>...> TryResolveTypeInstances(EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
+		TTuple<DI::TBindingInstPtr<Ts>...> TryGetMany(EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			return MakeTuple(this->Resolve<Ts>(MakeBindingId<Ts>(), ErrorBehavior)...);
+			return MakeTuple(this->Get<Ts>(MakeBindingId<Ts>(), ErrorBehavior)...);
 		}
 
 		/**
 		 * Try to resolve an instance based on its type only.
 		 * @code
-		 * DiContainer.Resolve().TryResolveNamedInstance<USimpleUService>("SomeName", DI::EResolveErrorBehavior::ReturnNull)
+		 * DiContainer.Resolve().TryGetNamed<USimpleUService>("SomeName", DI::EResolveErrorBehavior::ReturnNull)
 		 * @endcode
 		 * @tparam T - Type of the binding that it was bound with. Only exact class matches can be resolved.
 		 * @param ErrorBehavior - specified what to do if the binding is not found.
 		 * @return The bindings in the same order as the types. Failed lookups will have null values.
 		 */
 		template <class T>
-		DI::TBindingInstPtr<T> TryResolveNamedInstance(const FName& BindingName, EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
+		DI::TBindingInstPtr<T> TryGetNamed(const FName& BindingName, EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
 			FBindingId BindingId = MakeBindingId<T>(BindingName);
-			return this->Resolve<T>(BindingId, ErrorBehavior);
+			return this->Get<T>(BindingId, ErrorBehavior);
 		}
 
 		template <class T>
@@ -129,7 +129,7 @@ namespace DI
 		 * When calling next on the returned future keep in mind the types that are used for the different binding types (see TBindingInstRef<T>)
 		 * Example usage:
 		 * @code
-		 *  ChildContainer->Resolve().TryResolveFutureTypeInstance<USimpleUService>()
+		 *  ChildContainer->Resolve().WaitFor<USimpleUService>()
 		 *  .Next([this](TOptional<TObjectPtr<USimpleUService>> ResolvedService)
 		 *  {
 		 *       check(ResolvedService.IsSet());
@@ -143,11 +143,11 @@ namespace DI
 		 * @return A Weak Future that completes once the dependency is bound or the container is dropped.
 		 */
 		template <class T>
-		TWeakFuture<TBindingInstRef<T>> TryResolveFutureTypeInstance(
+		TWeakFuture<TBindingInstRef<T>> WaitFor(
 			UObject* WaitingObject = nullptr,
 			EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			return this->TryResolveFutureNamedInstance<T>(NAME_None, WaitingObject, ErrorBehavior);
+			return this->WaitForNamed<T>(NAME_None, WaitingObject, ErrorBehavior);
 		}
 
 		/**
@@ -155,7 +155,7 @@ namespace DI
 		 * When calling ExpandNext on the returned set keep in mind the different types that are used for the different binding types (see TBindingInstRef<T>)
 		 * Example usage:
 		 * @code
-		 *  DiContainer.Resolve().TryResolveFutureTypeInstances<USimpleUService, ISimpleInterface,>()
+		 *  DiContainer.Resolve().WaitForMany<USimpleUService, ISimpleInterface,>()
 		 *  .ExpandNext([](TOptional<TObjectPtr<USimpleUService>> ObjectService, TOptional<TScriptInterface<ISimpleInterface>> InterfaceService)
 		 *  {
 		 *      check(ResolvedService.IsSet());
@@ -165,7 +165,7 @@ namespace DI
 		 *
 		 * Full Example usage:
 		 * @code
-		 *  DiContainer.Resolve().TryResolveFutureTypeInstances<USimpleUService, ISimpleInterface, FSimpleUStructService, FSimpleNativeService>()
+		 *  DiContainer.Resolve().WaitForMany<USimpleUService, ISimpleInterface, FSimpleUStructService, FSimpleNativeService>()
 		 *	.ExpandNext([](TOptional<TObjectPtr<USimpleUService>> ObjectService, TOptional<TScriptInterface<ISimpleInterface>> InterfaceService, TOptional<const FSimpleUStructService&> StructService, TOptional<TSharedRef<FSimpleNativeService>> NativeService)
 		 *	{
 		 *		check(ResolvedService.IsSet());
@@ -180,12 +180,12 @@ namespace DI
 		 * @return A Weak Future Set that completes once all binding requests have been completed or once the container is dropped.
 		 */
 		template <class... Ts>
-		TWeakFutureSet<TOptional<TBindingInstRef<Ts>>...> TryResolveFutureTypeInstances(
+		TWeakFutureSet<TOptional<TBindingInstRef<Ts>>...> WaitForMany(
 			UObject* WaitingObject = nullptr,
 			EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
 			TTuple<TWeakFuture<TBindingInstRef<Ts>>...> Futures = TTuple<TWeakFuture<TBindingInstRef<Ts>>...>(
-				this->TryResolveFutureTypeInstance<Ts>(WaitingObject, ErrorBehavior)...
+				this->WaitFor<Ts>(WaitingObject, ErrorBehavior)...
 			);
 			return AwaitAllWeak(MoveTemp(Futures));
 		}
@@ -195,7 +195,7 @@ namespace DI
 		 * When calling ExpandNext on the returned set keep in mind the different types that are used for the different binding types (see TBindingInstRef<T>)
 		 * Simple Example usage:
 		 * @code
-		 *  DiContainer.Resolve().TryResolveFutureNamedInstances<USimpleUService, ISimpleInterface,>()
+		 *  DiContainer.Resolve().WaitForManyNamed<USimpleUService, ISimpleInterface,>()
 		 *  .ExpandNext([](TOptional<TObjectPtr<USimpleUService>> ObjectService, TOptional<TScriptInterface<ISimpleInterface>> InterfaceService)
 		 *  {
 		 *      check(ResolvedService.IsSet());
@@ -205,7 +205,7 @@ namespace DI
 		 *
 		 * Full Example usage:
 		 * @code
-		 *  DiContainer.Resolve().TryResolveFutureNamedInstances<USimpleUService, ISimpleInterface, FSimpleUStructService, FSimpleNativeService>(this, "Binding1", "Binding2", "Binding3", "Binding4", DI::EResolveErrorBehavior::AssertCheck)
+		 *  DiContainer.Resolve().WaitForManyNamed<USimpleUService, ISimpleInterface, FSimpleUStructService, FSimpleNativeService>(this, "Binding1", "Binding2", "Binding3", "Binding4", DI::EResolveErrorBehavior::AssertCheck)
 		 *	.ExpandNext([](TOptional<TObjectPtr<USimpleUService>> ObjectService, TOptional<TScriptInterface<ISimpleInterface>> InterfaceService, TOptional<const FSimpleUStructService&> StructService, TOptional<TSharedRef<FSimpleNativeService>> NativeService)
 		 *	{
 		 *		check(ResolvedService.IsSet());
@@ -220,24 +220,18 @@ namespace DI
 		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
 		 * @return A Weak Future Set that completes once all binding requests have been completed or once the container is dropped.
 		 */
-		template <class... Ts>
-		TWeakFutureSet<TOptional<TBindingInstRef<Ts>>...> TryResolveFutureNamedInstances(
-			UObject* WaitingObject,
-			EResolveErrorBehavior ErrorBehavior,
-			FName BindingNames... ) const
+		template <class... Ts, class ...TNames>
+		TWeakFutureSet<TOptional<TBindingInstRef<Ts>>...> WaitForManyNamed( UObject* WaitingObject, EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
 			TTuple<TWeakFuture<TBindingInstRef<Ts>>...> Futures = TTuple<TWeakFuture<TBindingInstRef<Ts>>...>(
-				this->TryResolveFutureNamedInstance<Ts>(BindingNames, WaitingObject, ErrorBehavior)...
+				this->template WaitForNamed<Ts>(BindingNames, WaitingObject, ErrorBehavior)...
 			);
 			return AwaitAllWeak(MoveTemp(Futures));
 		}
-		template <class... Ts>
-		TWeakFutureSet<TOptional<TBindingInstRef<Ts>>...> TryResolveFutureNamedInstances(
-			UObject* WaitingObject,
-			FName BindingNames...) const
-		{
+		template <class... Ts, class ...TNames>
+		TWeakFutureSet<TOptional<TBindingInstRef<Ts>>...> WaitForManyNamed( UObject* WaitingObject, TNames... BindingNames) const {
 			TTuple<TWeakFuture<TBindingInstRef<Ts>>...> Futures = TTuple<TWeakFuture<TBindingInstRef<Ts>>...>(
-				this->TryResolveFutureNamedInstance<Ts>(BindingNames, WaitingObject, GDefaultResolveErrorBehavior)...
+				this->template WaitForNamed<Ts>(BindingNames, WaitingObject, GDefaultResolveErrorBehavior)...
 			);
 			return AwaitAllWeak(MoveTemp(Futures));
 		}
@@ -247,7 +241,7 @@ namespace DI
 		 * When calling ExpandNext on the returned set keep in mind the different types that are used for the different binding types (see TBindingInstRef<T>)
 		 * Example Usage:
 		 * @code
-		 *  ChildContainer->Resolve().TryResolveFutureNamedInstance<USimpleUService>("SimpleName")
+		 *  ChildContainer->Resolve().WaitForNamed<USimpleUService>("SimpleName")
 		 *  .Next([this](TOptional<TObjectPtr<USimpleUService>> ResolvedService)
 		 *  {
 		 *     check(ResolvedService.IsSet());
@@ -263,14 +257,14 @@ namespace DI
 		 * @return A Weak Future that completes once the dependency is bound or the container is dropped.
 		 */
 		template <class TInstanceType>
-		TWeakFuture<TBindingInstRef<TInstanceType>> TryResolveFutureNamedInstance(
+		TWeakFuture<TBindingInstRef<TInstanceType>> WaitForNamed(
 			const FName& BindingName,
 			UObject* WaitingObject = nullptr,
 			EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
 			FBindingId BindingId = MakeBindingId<TInstanceType>(BindingName);
 			auto [Promise, Future] = MakeWeakPromisePair<TBindingInstRef<TInstanceType>>();
-			TBindingInstPtr<TInstanceType> MaybeInstance = Resolve<TInstanceType>(BindingId, EResolveErrorBehavior::ReturnNull);
+			TBindingInstPtr<TInstanceType> MaybeInstance = this->Get<TInstanceType>(BindingId, EResolveErrorBehavior::ReturnNull);
 			if (MaybeInstance)
 			{
 				Promise.EmplaceValue(ToRefType(MaybeInstance));
@@ -311,7 +305,7 @@ namespace DI
 		 * Private so no one passes in a binding Id that does not match T
 		 */
 		template <class T>
-		DI::TBindingInstPtr<T> Resolve(const FBindingId& BindingId, EResolveErrorBehavior ErrorBehavior) const
+		DI::TBindingInstPtr<T> Get(const FBindingId& BindingId, EResolveErrorBehavior ErrorBehavior) const
 		{
 			if (TSharedPtr<DI::FBinding> BindingInstance = DiContainer.FindBinding(BindingId))
 			{

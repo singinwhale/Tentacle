@@ -44,23 +44,23 @@ void ConnectedDiContainerSpec::Define()
 	{
 		It("should search parents", [this]
 		{
-			ParentContainer->Bind().BindInstance<USimpleUService>(Service);
+			ParentContainer->Bind().Instance<USimpleUService>(Service);
 
-			TestEqual("ChildContainer.Resolve().TryResolveTypeInstance<USimpleUService>()", ChildContainer->Resolve().TryResolveTypeInstance<USimpleUService>(), Service);
+			TestEqual("ChildContainer.Resolve().TryGet<USimpleUService>()", ChildContainer->Resolve().TryGet<USimpleUService>(), Service);
 		});
 		It("should search other parents", [this]
 		{
-			OtherParentContainer->Bind().BindInstance<USimpleUService>(Service);
+			OtherParentContainer->Bind().Instance<USimpleUService>(Service);
 
-			TestEqual("ChildContainer.Resolve().TryResolveTypeInstance<USimpleUService>()", ChildContainer->Resolve().TryResolveTypeInstance<USimpleUService>(), Service);
+			TestEqual("ChildContainer.Resolve().TryGet<USimpleUService>()", ChildContainer->Resolve().TryGet<USimpleUService>(), Service);
 		});
 		It("should respect priority of parents", [this]
 		{
 			USimpleUService* OtherService = NewObject<USimpleUService>();
-			ParentContainer->Bind().BindInstance<USimpleUService>(Service);
-			OtherParentContainer->Bind().BindInstance<USimpleUService>(OtherService);
+			ParentContainer->Bind().Instance<USimpleUService>(Service);
+			OtherParentContainer->Bind().Instance<USimpleUService>(OtherService);
 
-			TestEqual("ChildContainer.Resolve().TryResolveTypeInstance<USimpleUService>()", ChildContainer->Resolve().TryResolveTypeInstance<USimpleUService>(), Service);
+			TestEqual("ChildContainer.Resolve().TryGet<USimpleUService>()", ChildContainer->Resolve().TryGet<USimpleUService>(), Service);
 		});
 
 	});
@@ -68,12 +68,12 @@ void ConnectedDiContainerSpec::Define()
 	{
 		LatentIt("should notify children", FTimespan::FromSeconds(1),[this](FDoneDelegate Done)
 		{
-			ChildContainer->Resolve().TryResolveFutureTypeInstance<USimpleUService>().Next([Done,this](TOptional<TObjectPtr<USimpleUService>> ResolvedService)
+			ChildContainer->Resolve().WaitFor<USimpleUService>().Next([Done,this](TOptional<TObjectPtr<USimpleUService>> ResolvedService)
 			{
 				TestEqual("ResolvedService", *ResolvedService, Service);
 				Done.Execute();
 			});
-			ParentContainer->Bind().BindInstance<USimpleUService>(Service);
+			ParentContainer->Bind().Instance<USimpleUService>(Service);
 		});
 	});
 }

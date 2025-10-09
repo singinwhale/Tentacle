@@ -14,10 +14,10 @@ DI::FDiContainer DiContainer = DI::FDiContainer();
 
 // Bind some UObject
 const TObjectPtr<USimpleUService> Service = NewObject<USimpleUService>();
-DiContainer.Bind().BindInstance<USimpleUService>(Service);
+DiContainer.Bind().Instance<USimpleUService>(Service);
 
 // Resolve the Object via its type
-TObjectPtr<USimpleService> ResolvedService = DiContainer.Resolve().TryResolveTypeInstance<USimpleUService>();
+TObjectPtr<USimpleService> ResolvedService = DiContainer.Resolve().TryGet<USimpleUService>();
 check(ResolvedService == Service);
 
 // Or call a function with its arguments populated from the container

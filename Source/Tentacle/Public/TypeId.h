@@ -230,11 +230,12 @@ namespace DI
 	const FTypeId& GetFreeTypeId()
 	{
 		static_assert(
-			Private::TAlwaysFalse<T>::value,
+			Private::TAlwaysFalse<T>::Value,
 			"Your type does not provide a Type Use `DI_DEFINE_NATIVE_TYPEID_MEMBER(YourClass)` in your class"
 			" or use `DI_DEFINE_FREE_NATIVE_TYPEID(SomeClass)` to define the type ID for a foreign type."
 		);
-		return {};
+		static FTypeId Null = {}; // fix a compiler warning due to returning a reference to a temporary value.
+		return Null;
 	}
 
 	template <class T>

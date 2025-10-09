@@ -34,7 +34,7 @@ bool UDiBlueprintFunctionLibrary::RequestAutoInject(TScriptInterface<IAutoInject
 
 UObject* UDiBlueprintFunctionLibrary::TryResolveObject(TScriptInterface<IDiContextInterface> DiContextInterface, UClass* ObjectType, FName BindingName)
 {
-	return DiContextInterface->GetDiContainer().Resolve().TryResolveUObjectByClass(ObjectType, BindingName, DI::EResolveErrorBehavior::LogError);
+	return DiContextInterface->DiResolve().TryGetUObjectByClass(ObjectType, BindingName, DI::EResolveErrorBehavior::LogError);
 }
 
 TScriptInterface<IInterface> UDiBlueprintFunctionLibrary::TryResolveInterface(TScriptInterface<IDiContextInterface> DiContextInterface, TSubclassOf<UInterface> InterfaceType, FName BindingName)
@@ -193,7 +193,7 @@ DEFINE_FUNCTION(UDiBlueprintFunctionLibrary::execTryResolveStruct)
 	else
 	{
 		P_NATIVE_BEGIN;
-			bool bResult = DiContextInterface->GetDiContainer().Resolve().TryResolveUStruct(
+			bool bResult = DiContextInterface->DiResolve().TryGetUStruct(
 				ValueProp->Struct,
 				ValuePtr,
 				BindingName
@@ -241,7 +241,7 @@ DEFINE_FUNCTION(UDiBlueprintFunctionLibrary::execTryResolveStructCopy)
 		P_NATIVE_BEGIN;
 			bool bResult = DiContextInterface->GetDiContainer()
 			                                 .Resolve()
-			                                 .TryResolveUStruct(
+			                                 .TryGetUStruct(
 				                                 StructType,
 				                                 ValuePtr,
 				                                 BindingName
