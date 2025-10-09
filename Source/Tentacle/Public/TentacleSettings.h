@@ -9,7 +9,7 @@
 /**
  * Developer settings for the Tentacle DI System.
  */
-UCLASS(Config=Game)
+UCLASS(Config=Engine)
 class TENTACLE_API UTentacleSettings : public UDeveloperSettings
 {
 	GENERATED_BODY()

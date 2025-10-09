@@ -3,18 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AutoInjectableInterface.h"
 #include "Container/BindingHelper.h"
+#include "Container/ChainedDiContainer.h"
 #include "Container/Injector.h"
 #include "Container/ResolveHelper.h"
 #include "UObject/Interface.h"
 #include "DIContextInterface.generated.h"
 
-namespace DI
-{
-	class FDiContainer;
-	class FChainedDiContainer;
-}
 
 
 UINTERFACE(NotBlueprintable, BlueprintType, meta=(CannotImplementInterfaceInBlueprint))

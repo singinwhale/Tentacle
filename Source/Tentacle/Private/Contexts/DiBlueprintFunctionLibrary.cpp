@@ -5,6 +5,7 @@
 
 #include "Blueprint/BlueprintExceptionInfo.h"
 #include "Container/ChainedDiContainer.h"
+#include "Contexts/AutoInjectableInterface.h"
 #include "Contexts/DIContextInterface.h"
 
 

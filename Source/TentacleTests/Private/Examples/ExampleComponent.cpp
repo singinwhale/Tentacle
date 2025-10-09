@@ -13,22 +13,18 @@ void UExampleComponent::AutoInject_Implementation(const TScriptInterface<IDiCont
 	// Here are mulitple examples of how to resolve dependencies and subsequently binding oneself, just pick one
 
 	DiContext->DiInject().AsyncIntoFunctionWithNames(*this, &UExampleComponent::InjectDependencies, "SimpleService")
-		.ThenBindInstance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
-
+	         .ThenBindInstance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 
 	DiContext->DiInject().AsyncIntoFunctionByType(*this, &UExampleComponent::InjectDependencies)
-		.ThenBindInstance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
-	
-	DiContext->DiResolve().WaitForMany<USimpleUService, UExampleComponent>()
-	         .ExpandNext(
-		         [this, DiContainer = DiContext->GetDiContainer().AsShared()](TOptional<TObjectPtr<USimpleUService>> Service, TOptional<TObjectPtr<UExampleComponent>>)
-		         {
-		         	this->InjectDependencies(*Service);
-					DiContainer->Bind().Instance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
-		         }
-	         );
-	DiContext->DiBind().Instance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
+	         .ThenBindInstance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 
+	DiContext->DiResolve().WaitForMany<USimpleUService, UExampleComponent>()
+	         .ExpandNext([this, DiContainer = DiContext->GetDiContainer().AsShared()](TOptional<TObjectPtr<USimpleUService>> Service, TOptional<TObjectPtr<UExampleComponent>>)
+	         {
+		         this->InjectDependencies(*Service);
+		         DiContainer->Bind().Instance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
+	         });
+	DiContext->DiBind().Instance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 }
 
 void UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService)
