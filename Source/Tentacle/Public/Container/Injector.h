@@ -6,6 +6,7 @@
 #include "ResolveErrorBehavior.h"
 #include "TentacleTemplates.h"
 #include "WeakFuture.h"
+#include "OptionalVoid.h"
 
 namespace DI
 {
@@ -17,7 +18,7 @@ namespace DI
 	public:
 		TAfterAsyncInject(TDiContainer& InDiContainer, Super&& WrappedFuture)
 			: Super(MoveTemp(WrappedFuture))
-			, DiContainer(InDiContainer)
+			  , DiContainer(InDiContainer)
 		{
 		}
 
@@ -28,7 +29,9 @@ namespace DI
 		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
 		 */
 		template <class T>
-		TWeakFuture<EBindResult> ThenBindInstance(DI::TBindingInstRef<T> Instance, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
+		TEnableIf<!TIsConst<TDiContainer>::Value,
+		TWeakFuture<EBindResult>>::Type
+		ThenBindInstance(DI::TBindingInstRef<T> Instance, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
 		{
 			return this->template ThenBindNamedInstance<T>(Instance, FName(NAME_None), ConflictBehavior);
 		}
@@ -40,7 +43,9 @@ namespace DI
 		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
 		 */
 		template <class TBinding>
-		TWeakFuture<EBindResult> ThenBindNamedInstance(DI::TBindingInstRef<TBinding> Instance, const FName& InstanceName, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
+		TEnableIf<!TIsConst<TDiContainer>::Value,
+		TWeakFuture<EBindResult>>::Type
+		ThenBindNamedInstance(DI::TBindingInstRef<TBinding> Instance, const FName& InstanceName, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
 		{
 			auto [BindPromise, Future] = MakeWeakPromisePair<EBindResult>();
 			this->Then(
@@ -83,25 +88,25 @@ namespace DI
 			: DiContainer(InDiContainer)
 		{
 		}
+		////////////////////////////////////////////////////////////////////////////////////////////
 
 		/**
 		 * Calls the given function on instance with the resolved types.
 		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
 		 * Example:
 		 * @code
-		 * bool UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService);
-		 * bool bResult = DiContainer.Inject().IntoFunctionByType(*ExampleComponent, &UExampleComponent::InjectDependencies);
+		   bool UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService);
+		   TOptional<bool> bResult = DiContainer.Inject().IntoInstance(*ExampleComponent, &UExampleComponent::InjectDependencies);
 		 * @endcode
 		 * @param Instance - the object on which to call MemberFunction
 		 * @param MemberFunction - member function pointer to a member function of Instance
-		 * @return whatever the passed function returns.
+		 * @return whatever the passed function returns or unset optional if there was an error.
 		 */
 		template <class T, class TRetVal, class... TArgs>
-		TRetVal IntoFunctionByType(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
+		TOptional<TRetVal> IntoInstance(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentTypes<TArgs...>(ErrorBehavior);
-
-			return ResolvedTypes.ApplyAfter(MemberFunction, Instance);
+			auto MaybeResolvedTypes = this->template TryGetFromArgumentTypes<TArgs...>(ErrorBehavior);
+			return TryApplyOptionalTuple(MemberFunction, MaybeResolvedTypes, Instance);
 		}
 
 		/**
@@ -109,19 +114,20 @@ namespace DI
 		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
 		 * Example:
 		 * @code
-		 * TObjectPtr<USimpleUService> InjectDependencies(TObjectPtr<USimpleUService> SimpleUService){
-		 *     return SimpleUService.
-		 * };
-		 * TObjectPtr<USimpleUService> Result = DiContainer.Inject().IntoFunctionByType(&InjectDependencies);
+		   USimpleUService* InjectDependencies(TObjectPtr<USimpleUService> SimpleUService){
+		       return SimpleUService.
+		   };
+		   TOptional<USimpleUService*> Result = *DiContainer.Inject().IntoStatic(&InjectDependencies);
 		 * @endcode
-		 * @param FreeFunction - function pointer to a function
-		 * @return whatever the passed function returns.
+		 * @param StaticFunction - function pointer to a function
+		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
+		 * @return whatever the passed function returns or unset optional if there was an error.
 		 */
 		template <class TRetVal, class... TArgs>
-		TRetVal IntoFunctionByType(TRetVal (*FreeFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
+		TOptional<TRetVal> IntoStatic(TRetVal (*StaticFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentTypes<TArgs...>(ErrorBehavior);
-			return ResolvedTypes.ApplyAfter(FreeFunction);
+			auto MaybeResolvedTypes = this->template TryGetFromArgumentTypes<TArgs...>(ErrorBehavior);
+			return TryApplyOptionalTuple(*StaticFunction, MaybeResolvedTypes);
 		}
 
 		/**
@@ -129,259 +135,514 @@ namespace DI
 		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
 		 * Example:
 		 * @code
-		 * DiContainer.Inject().IntoLambda(
-		 *   [&](TObjectPtr<USimpleUService> SimpleUService)
-		 *   {
-		 *     ExampleComponent->InjectDependenciesWithExtraArgs(SimpleUService, ExtraString);
-		 *   }
-		 *);
+		   TOptional<void> Ok = DiContainer.Inject().IntoLambda(
+		     [&](TObjectPtr<USimpleUService> SimpleUService)
+		     {
+		       ExampleComponent->InjectDependenciesWithExtraArgs(SimpleUService, ExtraString);
+		     }
+		  );
 		 * @endcode
 		 * @param Callable - callable to call with the resolved arguments
-		 * @return whatever the passed function returns.
+		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
+		 * @return whatever the passed function returns or unset optional if there was an error.
 		 */
 		template <class TCallable>
 		auto IntoLambda(TCallable&& Callable, EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentTypesTuple<typename FunctionTraits::TFunctionTraits<TCallable>::ArgsTuple>(ErrorBehavior);
-			return ResolvedTypes.ApplyAfter(Callable);
+			auto MaybeResolvedTypes = this->template ResolveFromArgumentTypesTuple<typename FunctionTraits::TFunctionTraits<TCallable>::ArgsTuple>(ErrorBehavior);
+			return TryApplyOptionalTuple(MoveTemp(Callable), MaybeResolvedTypes);
 		}
+
+		////////////////////////////////////////////////////////////////////////////////////////////
 
 		/**
 		 * Calls the given lambda with the resolved types.
 		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
 		 * Example:
 		 * @code
-		 * DiContainer.Inject().IntoLambda(
-		 *   [&](TObjectPtr<USimpleUService> SimpleUService)
-		 *   {
-		 *     ExampleComponent->InjectDependenciesWithExtraArgs(SimpleUService, ExtraString);
-		 *   }
-		 *);
+		   TOptional<void> Ok = DiContainer.Inject().IntoLambdaNamed(
+		     [&](TObjectPtr<USimpleUService> SimpleUService)
+		     {
+		       ExampleComponent->InjectDependenciesWithExtraArgs(SimpleUService, ExtraString);
+		     },
+		     DI::EResolveErrorBehavior::AssertCheck,
+		     "Service"
+		   );
 		 * @endcode
 		 * @param Callable - callable to call with the resolved arguments
-		 * @return whatever the passed function returns.
+		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
+		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
+		 * @return TOptional<TRetVal>. i.e. Whatever the passed function returns or unset optional if there was an error.
 		 */
-		template <class TCallable, class ...TNames>
-		auto IntoLambdaWithNames(TCallable&& Callable, EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
+		template <class TCallable, class... TNames>
+		auto IntoLambdaNamed(TCallable&& Callable, EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentTypesTupleNamed<typename FunctionTraits::TFunctionTraits<TCallable>::ArgsTuple>( ErrorBehavior, BindingNames... );
-			return ResolvedTypes.ApplyAfter(Callable);
+			auto MaybeResolvedTypes = this->template ResolveFromArgumentTypesTupleNamed<typename FunctionTraits::TFunctionTraits<TCallable>::ArgsTuple>(ErrorBehavior, BindingNames...);
+			return TryApplyOptionalTuple(MoveTemp(Callable), MaybeResolvedTypes);
 		}
 
-		/** Version without explicit ErrorBehavior */
-		template <class TCallable, class ...TNames>
-		auto IntoLambdaWithNames(TCallable&& Callable, TNames... BindingNames) const
+		/**
+		 * Calls the given lambda with the resolved types.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 * If some of the bindings are not found GDefaultResolveErrorBehavior is used.
+		 * Example:
+		 * @code
+		   TOptional<void> Ok = DiContainer.Inject().IntoLambdaNamed(
+		     [&](TObjectPtr<USimpleUService> SimpleUService)
+		     {
+		       ExampleComponent->InjectDependenciesWithExtraArgs(SimpleUService, ExtraString);
+		     },
+		     "Service"
+		   );
+		 * @endcode
+		 * @param Callable - callable to call with the resolved arguments
+		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
+		 * @return TOptional<TRetVal>. i.e. Whatever the passed function returns or unset optional if there was an error.
+		 */
+		template <class TCallable, class... TNames>
+		auto IntoLambdaNamed(TCallable&& Callable, TNames... BindingNames) const
 		{
-			return this->IntoLambdaWithNames(MoveTemp(Callable), GDefaultResolveErrorBehavior, BindingNames...);
+			return this->IntoLambdaNamed(MoveTemp(Callable), GDefaultResolveErrorBehavior, BindingNames...);
 		}
+
+		////////////////////////////////////////////////////////////////////////////////////////////
 
 		/**
 		 * Calls the given function on instance with the resolved named types.
 		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
 		 * Example:
 		 * @code
-		 * bool UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService);
-		 * bool bResult = DiContainer.Inject().IntoFunctionWithNames(*ExampleComponent, &UExampleComponent::InjectDependencies, "SimpleService");
+		   bool UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService);
+		   TOptional<bool> Result = DiContainer.Inject().IntoInstanceNamed(*ExampleComponent, &UExampleComponent::InjectDependencies, "SimpleService");
 		 * @endcode
 		 * @param Instance - the object on which to call MemberFunction
 		 * @param MemberFunction - member function pointer to a member function of Instance
 		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
 		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
-		 * @return whatever the passed function returns.
+		 * @return whatever the passed function returns or unset optional if there was an error.
 		 */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		TRetVal IntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
+		TOptional<TRetVal> IntoInstanceNamed(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentNames<TArgs...>(ErrorBehavior, Forward<TNames>(BindingNames)...);
+			auto ResolvedTypes = this->template TryGetFromArgumentsNamed<TArgs...>(ErrorBehavior, Forward<TNames>(BindingNames)...);
 			return ResolvedTypes.ApplyAfter(MemberFunction, &Instance);
 		}
 
-		/** Version without explicit ErrorBehavior */
+		/**
+		 * Calls the given function on instance with the resolved named types.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 * If some of the bindings are not found GDefaultResolveErrorBehavior is used.
+		 * Example:
+		 * @code
+		   bool UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService);
+		   TOptional<bool> bResult = DiContainer.Inject().IntoInstanceNamed(*ExampleComponent, &UExampleComponent::InjectDependencies, "SimpleService");
+		 * @endcode
+		 * @param Instance - the object on which to call MemberFunction
+		 * @param MemberFunction - member function pointer to a member function of Instance
+		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
+		 * @return whatever the passed function returns or unset optional if there was an error.
+		 */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		TRetVal IntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames&&... BindingNames) const
+		TOptional<TRetVal> IntoInstanceNamed(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames&&... BindingNames) const
 		{
-			return this->IntoFunctionWithNames<T, TRetVal, TArgs...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, Forward<TNames>(BindingNames)...);
+			return this->template IntoInstanceNamed<T, TRetVal, TArgs...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, Forward<TNames>(BindingNames)...);
 		}
+
+		////////////////////////////////////////////////////////////////////////////////////////////
 
 		/**
 		 * Calls the given function with the resolved named types.
 		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
 		 * Example:
 		 * @code
-		 * TObjectPtr<USimpleUService> InjectDependencies(TObjectPtr<USimpleUService> SimpleUService){
-		 *     return SimpleUService.
-		 * };
-		 * TObjectPtr<USimpleUService> Result = DiContainer.Inject().IntoFunctionByType(&InjectDependencies, DI::GDefaultResolveErrorBehavior, "SimpleService");
+		   TObjectPtr<USimpleUService> InjectDependencies(TObjectPtr<USimpleUService> SimpleUService);
+		   TOptional<TObjectPtr<USimpleUService>> Result = DiContainer.Inject().IntoStaticNamed(&InjectDependencies, DI::EResolveErrorBehavior::AssertCheck, "SimpleService");
 		 * @endcode
-		 * @param FreeFunction - function pointer to a function
+		 * @param StaticFunction - function pointer to a function
 		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
 		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
-		 * @return whatever the passed function returns.
+		 * @return whatever the passed function returns or unset optional if there was an error.
 		 */
 		template <class TRetVal, class... TArgs, class... TNames>
-		TRetVal IntoFunctionWithNames(TRetVal (*FreeFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
+		TOptional<TRetVal> IntoStaticNamed(TRetVal (*StaticFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentNames<TArgs...>(ErrorBehavior, Forward<TNames>(BindingNames)...);
-			return ResolvedTypes.ApplyAfter(FreeFunction);
+			auto ResolvedTypes = this->template TryGetFromArgumentsNamed<TArgs...>(ErrorBehavior, Forward<TNames>(BindingNames)...);
+			return ResolvedTypes.ApplyAfter(StaticFunction);
 		}
 
-		/** Version without explicit ErrorBehavior */
+		/**
+		 * Calls the given function with the resolved named types.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 * If some of the bindings are not found GDefaultResolveErrorBehavior is used.
+		 * Example:
+		 * @code
+		   TObjectPtr<USimpleUService> InjectDependencies(TObjectPtr<USimpleUService> SimpleUService);
+		   TOptional<TObjectPtr<USimpleUService>> Result = DiContainer.Inject().IntoStaticNamed(&InjectDependencies, "SimpleService");
+		 * @endcode
+		 * @param StaticFunction - function pointer to a function
+		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
+		 * @return whatever the passed function returns or unset optional if there was an error.
+		 */
 		template <class TRetVal, class... TArgs, class... TNames>
-		TRetVal IntoFunctionWithNames(TRetVal (*FreeFunction)(TArgs...), TNames&&... BindingNames) const
+		TOptional<TRetVal> IntoStaticNamed(TRetVal (*StaticFunction)(TArgs...), TNames&&... BindingNames) const
 		{
-			return this->IntoFunctionWithNames<TRetVal, TArgs...>(FreeFunction, GDefaultResolveErrorBehavior, Forward<TNames>(BindingNames)...);
+			return this->template IntoStaticNamed<TRetVal, TArgs...>(StaticFunction, GDefaultResolveErrorBehavior, Forward<TNames>(BindingNames)...);
 		}
+
+		////////////////////////////////////////////////////////////////////////////////////////////
+
 
 		/**
 		 * Calls the given function on the instance with the resolved types when they are fully resolvable.
 		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 *
+		 * The function will not be called at all if the instance goes out of scope or any argument cannot be resolved.
+		 * Use .OrElse(...) to handle such errors.
 		 * Example:
 		 * @code
-		 * bool UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService);
-		 * bool bResult = DiContainer.Inject().AsyncIntoFunctionByType(*ExampleComponent, &UExampleComponent::InjectDependencies);
+		   bool UExampleComponent::Initialize(TObjectPtr<USimpleService> InService);
+		   UExampleComponent* Instance;
+		   DiContainer.Inject().AsyncIntoUObjectNamed(*Instance, &UExampleComponent::Initialize, DI::EResolveErrorBehavior::AssertCheck, "NameOfDep")
+		  		.ThenBindInstance(Instance)
+		  		.OrElse([]{
+		  			// Handle error
+		  		});
 		 * @endcode
 		 * @warning If not all the bindings can be resolved, the function will not be called at all!
 		 * @param Instance - the object on which to call MemberFunction
 		 * @param MemberFunction - member function pointer to a member function of Instance
 		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
-		 * @return whatever the passed function returns.
+		 * @return a future for whatever the passed function returns. The future will be canceled if there is an error.
 		 */
 		template <class T, class TRetVal, class... TArgs>
-		typename TEnableIf<TIsDerivedFrom<T, UObject>::IsDerived, TAfterAsyncInject<TRetVal, TDiContainer>>::Type
-		AsyncIntoFunctionByType(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
+		TAfterAsyncInject<TRetVal, TDiContainer>
+		AsyncIntoUObject(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			return this->template AsyncIntoFunctionWithNames<T>(Instance, MemberFunction, ErrorBehavior, (TVoid<TArgs>(), NAME_None)...);
+			return this->template AsyncIntoUObjectNamed<T, TRetVal, TArgs...>(Instance, MemberFunction, ErrorBehavior, (TVoid<TArgs>(), NAME_None)...);
 		}
 
 		/**
 		 * Calls the given function on the instance with the resolved types when they are fully resolvable.
 		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 *
+		 * The function will not be called at all if the instance goes out of scope or any argument cannot be resolved.
+		 * Use .OrElse(...) to handle such errors.
 		 * Example:
 		 * @code
-		 * bool FExampleNative::Initialize(TSharedPtr<FSimpleNativeService> SimpleNative);
-		 * DiContainer.Inject().AsyncIntoFunctionByType(MakeShared<FExampleNative>(), &FExampleNative::Initialize);
-		 * @endcode
-		 * @warning If not all the bindings can be resolved, the function will not be called at all!
-		 * @param Instance - the object on which to call MemberFunction
-		 * @param MemberFunction - member function pointer to a member function of Instance
-		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
-		 * @return whatever the passed function returns.
-		 */
-		template <class T, class TRetVal, class... TArgs>
-		typename TEnableIf<!TIsDerivedFrom<T, UObject>::IsDerived, TAfterAsyncInject<TRetVal, TDiContainer>>::Type
-		AsyncIntoFunctionByType(TSharedRef<T> Instance,
-			TRetVal (T::*MemberFunction)(TArgs...),
-			EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
-		{
-			return this->template AsyncIntoFunctionWithNames<T>(Instance, MemberFunction, ErrorBehavior, (TVoid<TArgs>(), NAME_None)...);
-		}
-
-		/**
-		 * Calls the given function on the instance with the resolved types when they are fully resolvable.
-		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
-		 * Example:
-		 * @code
-		 * bool FExampleNative::Initialize(TSharedPtr<FSimpleNativeService> SimpleNative);
-		 * DiContainer.Inject().AsyncIntoFunctionByType(MakeShared<FExampleNative>(), &FExampleNative::Initialize);
+		   bool UExampleComponent::Initialize(TObjectPtr<USimpleService> InService);
+		   UExampleComponent* Instance;
+		   DiContainer.Inject().AsyncIntoUObjectNamed(*Instance, &UExampleComponent::Initialize, DI::EResolveErrorBehavior::AssertCheck, "NameOfDep")
+		  		.ThenBindInstance(Instance)
+		  		.OrElse([]{
+		  			// Handle error
+		  		});
 		 * @endcode
 		 * @warning If not all the bindings can be resolved, the function will not be called at all!
 		 * @param Instance - the object on which to call MemberFunction
 		 * @param MemberFunction - member function pointer to a member function of Instance
 		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
 		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
-		 * @return whatever the passed function returns.
+		 * @return a future for whatever the passed function returns. The future will be canceled if there is an error.
 		 */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		typename TEnableIf<TIsDerivedFrom<T, UObject>::IsDerived && !TIsConst<TDiContainer>::Value, TAfterAsyncInject<TRetVal, TDiContainer>>::Type
-		AsyncIntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
+		TAfterAsyncInject<TRetVal, TDiContainer>
+		AsyncIntoUObjectNamed(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
 		{
-			return TAfterAsyncInject(DiContainer, this->template AsyncIntoFunctionWithNamesInternal<T, TRetVal, TArgs...>(Instance, MemberFunction, ErrorBehavior, BindingNames...));
-		}
-		template <class T, class TRetVal, class... TArgs, class... TNames>
-		typename TEnableIf<TIsDerivedFrom<T, UObject>::IsDerived  && TIsConst<TDiContainer>::Value, TWeakFuture<TRetVal>>::Type
-		AsyncIntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
-		{
-			return this->template AsyncIntoFunctionWithNamesInternal<T, TRetVal, TArgs...>(Instance, MemberFunction, ErrorBehavior, BindingNames...);
+			static_assert(TIsDerivedFrom<T, UObject>::IsDerived, "The AsyncIntoUObject family only works with UObjects. Use the AsyncIntoSP family if you need async execution for native types. Stability cannot be guaranteed without a WeakPtr mechanism");
+			return TAfterAsyncInject<TRetVal, TDiContainer>(DiContainer, this->template AsyncIntoUObjectInternal<T, TRetVal, TArgs...>(Instance, MemberFunction, ErrorBehavior, BindingNames...));
 		}
 
-		/** Version for UObject types referenced without ErrorBehavior */
+		/**
+		 * Calls the given function on the instance with the resolved types when they are fully resolvable.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 *
+		 * The function will not be called at all if the instance goes out of scope or any argument cannot be resolved.
+		 * Use .OrElse(...) to handle such errors.
+		 * Example:
+		 * @code
+		   bool FExampleNative::Initialize(TSharedPtr<FSimpleNativeService> SimpleNative);
+		   TSharedRef<FExampleNative> Instance = MakeShared<FExampleNative>()
+		   DiContainer.Inject().AsyncIntoUObjectNamed(MakeShared<FExampleNative>(), &FExampleNative::Initialize, "NameOfDep")
+		  		.ThenBindInstance(Instance)
+		  		.OrElse([]{
+		  			// Handle error
+		  		});
+		 * @endcode
+		 * @warning If not all the bindings can be resolved, the function will not be called at all!
+		 * @param Instance - the object on which to call MemberFunction
+		 * @param MemberFunction - member function pointer to a member function of Instance
+		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
+		 * @return a future for whatever the passed function returns. The future will be canceled if there is an error.
+		 */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		typename TEnableIf<TIsDerivedFrom<T, UObject>::IsDerived && !TIsConst<TDiContainer>::Value, TAfterAsyncInject<TRetVal, TDiContainer>>::Type
-		AsyncIntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames&&... BindingNames) const
+		TAfterAsyncInject<TRetVal, TDiContainer>
+		AsyncIntoUObjectNamed(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames&&... BindingNames) const
 		{
-			return TAfterAsyncInject(DiContainer, this->template AsyncIntoFunctionWithNamesInternal<T, TRetVal, TArgs...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, BindingNames...));
+			static_assert(TIsDerivedFrom<T, UObject>::IsDerived, "The AsyncIntoUObject family only works with UObjects. Use the AsyncIntoSP family if you need async execution for native types. Stability cannot be guaranteed without a WeakPtr mechanism");
+			return TAfterAsyncInject<TRetVal, TDiContainer>(DiContainer, this->template AsyncIntoUObjectNamed<T, TRetVal, TArgs...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, BindingNames...));
 		}
 
-		/** Version for UObject types referenced without ErrorBehavior */
-		template <class T, class TRetVal, class... TArgs, class... TNames>
-		typename TEnableIf<TIsDerivedFrom<T, UObject>::IsDerived && TIsConst<TDiContainer>::Value, TWeakFuture<TRetVal>>::Type
-		AsyncIntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames&&... BindingNames) const
+		////////////////////////////////////////////////////////////////////////////////////////////
+
+		/**
+		 * Calls the given function on the instance with the resolved types when they are fully resolvable.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 *
+		 * The function will not be called at all if the instance goes out of scope or any argument cannot be resolved.
+		 * Use .OrElse(...) to handle such errors.
+		 * Example:
+		 * @code
+		   bool FExampleNative::Initialize(TSharedPtr<FSimpleNativeService> SimpleNative);
+		   TSharedRef<FExampleNative> Instance = MakeShared<FExampleNative>()
+		   DiContainer.Inject().AsyncIntoSP(MakeShared<FExampleNative>(), &FExampleNative::Initialize, DI::EResolveErrorBehavior::AssertCheck, "NameOfDep")
+		  		.ThenBindInstance(Instance)
+		  		.OrElse([]{
+		  			// Handle error
+		  		});
+		 * @endcode
+		 * @warning If not all the bindings can be resolved, the function will not be called at all!
+		 * @param Instance - the object on which to call MemberFunction
+		 * @param MemberFunction - member function pointer to a member function of Instance
+		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
+		 * @return a future for whatever the passed function returns. The future will be canceled if there is an error.
+		 */
+		template <class T, class TRetVal, class... TArgs>
+		TAfterAsyncInject<TRetVal, TDiContainer>
+		AsyncIntoSP(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			return this->template AsyncIntoFunctionWithNamesInternal<T, TRetVal, TArgs...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, BindingNames...);
+			return this->template AsyncIntoSPNamed<T, TRetVal, TArgs...>(Instance, MemberFunction, ErrorBehavior, (TVoid<TArgs>(), NAME_None)...);
 		}
 
-		/** Version for native types referenced via SharedPtr */
+		/**
+		 * Calls the given function on the instance with the resolved types when they are fully resolvable.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 *
+		 * The function will not be called at all if the instance goes out of scope or any argument cannot be resolved.
+		 * Use .OrElse(...) to handle such errors.
+		 * Example:
+		 * @code
+		   bool FExampleNative::Initialize(TSharedPtr<FSimpleNativeService> SimpleNative);
+		   TSharedRef<FExampleNative> Instance = MakeShared<FExampleNative>()
+		   DiContainer.Inject().AsyncIntoSPNamed(MakeShared<FExampleNative>(), &FExampleNative::Initialize, DI::EResolveErrorBehavior::AssertCheck, "NameOfDep")
+				  .ThenBindInstance(Instance)
+				  .OrElse([]{
+					  // Handle error
+				  });
+		 * @endcode
+		 * @warning If not all the bindings can be resolved, the function will not be called at all!
+		 * @param Instance - the object on which to call MemberFunction
+		 * @param MemberFunction - member function pointer to a member function of Instance
+		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
+		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
+		 * @return a future for whatever the passed function returns. The future will be canceled if there is an error.
+		 */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		typename TEnableIf<!TIsDerivedFrom<T, UObject>::IsDerived && !TIsConst<TDiContainer>::Value, TAfterAsyncInject<TRetVal, TDiContainer>>::Type
-		AsyncIntoFunctionWithNames(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
+		TAfterAsyncInject<TRetVal, TDiContainer>
+		AsyncIntoSPNamed(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
-			return TAfterAsyncInject(DiContainer, this->template AsyncIntoFunctionWithNamesInternal(Instance, MemberFunction, ErrorBehavior, BindingNames...));
+			return TAfterAsyncInject<TRetVal, TDiContainer>(DiContainer, this->template AsyncIntoSPInternal<T, TRetVal, TArgs...>(Instance, MemberFunction, ErrorBehavior, BindingNames...));
 		}
 
-		/** Version for native types referenced via SharedPtr without ErrorBehavior */
+		/**
+		 * Calls the given function on the instance with the resolved types when they are fully resolvable.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 *
+		 * The function will not be called at all if the instance goes out of scope or any argument cannot be resolved.
+		 * Use .OrElse(...) to handle such errors.
+		 * Example:
+		 * @code
+		   bool FExampleNative::Initialize(TSharedPtr<FSimpleNativeService> SimpleNative);
+		   TSharedRef<FExampleNative> Instance = MakeShared<FExampleNative>()
+		   DiContainer.Inject().AsyncIntoSPNamed(MakeShared<FExampleNative>(), &FExampleNative::Initialize, "NameOfDep")
+				  .ThenBindInstance(Instance)
+				  .OrElse([]{
+					  // Handle error
+				  });
+		 * @endcode
+		 * @warning If not all the bindings can be resolved, the function will not be called at all!
+		 * @param Instance - the object on which to call MemberFunction
+		 * @param MemberFunction - member function pointer to a member function of Instance
+		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
+		 * @return a future for whatever the passed function returns. The future will be canceled if there is an error.
+		 */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		typename TEnableIf<!TIsDerivedFrom<T, UObject>::IsDerived && TIsConst<TDiContainer>::Value, TWeakFuture<TRetVal>>::Type
-		AsyncIntoFunctionWithNames(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames... BindingNames) const
+		TAfterAsyncInject<TRetVal, TDiContainer>
+		AsyncIntoSPNamed(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames... BindingNames) const
 		{
-			return this->template AsyncIntoFunctionWithNames<T, TRetVal, TArgs...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, BindingNames...);
+			return this->template AsyncIntoSPNamed<T, TRetVal, TArgs...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, BindingNames...);
+		}
+		//-------------------------------
+
+		////////////////////////////////////////////////////////////////////////////////////////////
+
+		/**
+		 * Calls the given function with the resolved types when they are fully resolvable.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 *
+		 * The function will not be called at all if the instance goes out of scope or any argument cannot be resolved.
+		 * Use .OrElse(...) to handle such errors.
+		 * Example:
+		 * @code
+		   bool InitializeSomething(TSharedPtr<FSimpleNativeService> SimpleNative);
+		   DiContainer.Inject().AsyncIntoStatic(&InitializeSomething, DI::EResolveErrorBehavior::AssertCheck, "NameOfDep")
+		  		.ThenBindInstance(Instance)
+		  		.OrElse([]{
+		  			// Handle error
+		  		});
+		 * @endcode
+		 * @warning If not all the bindings can be resolved, the function will not be called at all!
+		 * @param StaticFunction - member function pointer to a member function of Instance
+		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
+		 * @return a future for whatever the passed function returns. The future will be canceled if there is an error.
+		 */
+		template <class TRetVal, class... TArgs>
+		TAfterAsyncInject<TRetVal, TDiContainer>
+		AsyncIntoStatic(TRetVal (*StaticFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
+		{
+			return this->template AsyncIntoStaticNamed<TRetVal, TArgs...>(StaticFunction, ErrorBehavior, (TVoid<TArgs>(), NAME_None)...);
+		}
+
+		/**
+		 * Calls the given function with the resolved types when they are fully resolvable.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 *
+		 * The function will not be called at all if the instance goes out of scope or any argument cannot be resolved.
+		 * Use .OrElse(...) to handle such errors.
+		 * Example:
+		 * @code
+		   bool InitializeSomething(TSharedPtr<FSimpleNativeService> SimpleNative);
+		   DiContainer.Inject().AsyncIntoStaticNamed(&InitializeSomething, DI::EResolveErrorBehavior::AssertCheck, "NameOfDep")
+		  		.ThenBindInstance(Instance)
+		  		.OrElse([]{
+		  			// Handle error
+		  		});
+		 * @endcode
+		 * @warning If not all the bindings can be resolved, the function will not be called at all!
+		 * @param StaticFunction - member function pointer to a member function of Instance
+		 * @param ErrorBehavior - specifies what to do if any of the bindings are not found.
+		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
+		 * @return a future for whatever the passed function returns. The future will be canceled if there is an error.
+		 */
+		template <class TRetVal, class... TArgs, class... TNames>
+		TAfterAsyncInject<TRetVal, TDiContainer>
+		AsyncIntoStaticNamed(TRetVal (*StaticFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
+		{
+			return TAfterAsyncInject<TRetVal, TDiContainer>(DiContainer, this->template AsyncIntoStaticInternal<TRetVal, TArgs...>(StaticFunction, ErrorBehavior, BindingNames...));
+		}
+
+		/**
+		 * Calls the given function with the resolved types when they are fully resolvable.
+		 * Keep in mind the different types for the different bindings. For reference see TBindingInstPtr.
+		 *
+		 * The function will not be called at all if the instance goes out of scope or any argument cannot be resolved.
+		 * Use .OrElse(...) to handle such errors.
+		 * Example:
+		 * @code
+		   bool InitializeSomething(TSharedPtr<FSimpleNativeService> SimpleNative);
+		   DiContainer.Inject().AsyncIntoStaticNamed(&InitializeSomething, DI::EResolveErrorBehavior::AssertCheck, "NameOfDep")
+		  		.ThenBindInstance(Instance)
+		  		.OrElse([]{
+		  			// Handle error
+		  		});
+		 * @endcode
+		 * @warning If not all the bindings can be resolved, the function will not be called at all!
+		 * @param StaticFunction - member function pointer to a member function of Instance
+		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
+		 * @return a future for whatever the passed function returns. The future will be canceled if there is an error.
+		 */
+		template <class TRetVal, class... TArgs, class... TNames>
+		TAfterAsyncInject<TRetVal, TDiContainer>
+		AsyncIntoStaticNamed(TRetVal (*StaticFunction)(TArgs...), TNames... BindingNames) const
+		{
+			return this->template AsyncIntoStaticNamed<TRetVal, TArgs...>(StaticFunction, GDefaultResolveErrorBehavior, BindingNames...);
 		}
 
 	private:
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		typename TEnableIf<TIsDerivedFrom<T, UObject>::IsDerived, TWeakFuture<TRetVal>>::Type
-		AsyncIntoFunctionWithNamesInternal(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
+		TWeakFuture<TRetVal>
+		AsyncIntoUObjectInternal(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
 		{
-			return this->DiContainer
-			           .Resolve()
-			           .template WaitForManyNamed<typename TBindingInstPtrBaseType<TArgs>::Type...>(&Instance, ErrorBehavior, BindingNames...)
-			           .ExpandNext([WeakInstance = MakeWeakObjectPtr(&Instance), MemberFunction](TOptional<TArgs>... OptionalResolvedTypes)
-			           {
-				           if (T* ValidInstance = WeakInstance.Get())
-				           {
-					           const bool bAllIsResolved = (OptionalResolvedTypes.IsSet() && ...);
-					           if (bAllIsResolved)
-					           {
-						           return (*ValidInstance.*MemberFunction)(OptionalResolvedTypes.GetValue()...);
-					           }
-				           }
-			           });
+			auto [RetValPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
+			static_assert((std::convertible_to<TBindingInstRef<typename TBindingInstBaseType<TArgs>::Type>, TArgs> && ...));
+			this->DiContainer
+				.Resolve()
+				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(&Instance, ErrorBehavior, BindingNames...)
+				.AndThenExpand([WeakInstance = MakeWeakObjectPtr(&Instance), MemberFunction, RetValPromise](TArgs... ResolvedBindings) mutable
+				{
+					T* ValidInstance = WeakInstance.Get();
+					const bool bAllIsResolvedAndValid = (TIsBindingPtrValid<TArgs>::Check(ResolvedBindings) && ... && true);
+					if (ValidInstance && bAllIsResolvedAndValid)
+					{
+						FutureDetail::SetPromiseValueFromContinuationResult(RetValPromise,[&](auto&&... Bindings)
+						{
+							return (*ValidInstance.*MemberFunction)(Bindings...);
+						}, MoveTempIfPossible(ResolvedBindings)...);
+					}
+					else
+					{
+						RetValPromise.Cancel();
+					}
+				})
+				.OrElse([RetValPromise]() mutable 
+				{
+					RetValPromise.Cancel();
+				});
+			return MoveTemp(OutFuture);
 		}
 
 		/** Version for native types referenced via SharedPtr */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		typename TEnableIf<!TIsDerivedFrom<T, UObject>::IsDerived, TWeakFuture<TRetVal>>::Type
-		AsyncIntoFunctionWithNamesInternal(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
+		TWeakFuture<TRetVal>
+		AsyncIntoSPInternal(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
-			return this->DiContainer
-			           .Resolve()
-			           .template WaitForManyNamed<TBindingInstPtrBaseType<TArgs>::Type...>(nullptr, ErrorBehavior, BindingNames...)
-			           .ExpandNext([WeakInstance = Instance.ToWeakPtr(), MemberFunction](TOptional<TArgs>... OptionalResolvedTypes)
-			           {
-				           if (TSharedRef<T> ValidInstance = WeakInstance.Pin())
-				           {
-					           const bool bAllIsResolved = (OptionalResolvedTypes.IsSet() && ...);
-					           if (bAllIsResolved)
-					           {
-						           return ((*ValidInstance).*MemberFunction)(OptionalResolvedTypes.GetValue()...);
-					           }
-				           }
-			           });
+			auto [OutPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
+			this->DiContainer
+				.Resolve()
+				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(nullptr, ErrorBehavior, BindingNames...)
+				.AndThenExpand([WeakInstance = Instance.ToWeakPtr(), MemberFunction, OutPromise](TArgs... ResolvedTypes) mutable
+				{
+					const bool bAllIsResolvedAndValid = (TIsBindingPtrValid<TArgs>::Check(ResolvedTypes) && ... && true);
+					TSharedPtr<T> ValidInstance = WeakInstance.Pin();
+					if (ValidInstance && bAllIsResolvedAndValid)
+					{
+						OutPromise.EmplaceValue(((*ValidInstance).*MemberFunction)(MoveTempIfPossible(ResolvedTypes)...));
+					}
+					else
+					{
+						OutPromise.Cancel();
+					}
+				});
+			return MoveTemp(OutFuture);
+		}
+
+		/** Version for callables */
+		template <class TRetVal, class... TArgs, class... TNames>
+		TWeakFuture<TRetVal>
+		AsyncIntoStaticInternal(TRetVal (*StaticFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
+		{
+			auto [OutPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
+			this->DiContainer
+				.Resolve()
+				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(nullptr, ErrorBehavior, BindingNames...)
+				.AndThenExpand([StaticFunction, OutPromise](TArgs... ResolvedTypes) mutable
+				{
+					const bool bAllIsResolvedAndValid = (TIsBindingPtrValid<TArgs>::Check(ResolvedTypes) && ... && true);
+					if (bAllIsResolvedAndValid)
+					{
+						OutPromise.EmplaceValue((*StaticFunction)(MoveTempIfPossible(ResolvedTypes)...));
+					}
+					else
+					{
+						OutPromise.Cancel();
+					}
+				});
+			return MoveTemp(OutFuture);
 		}
 
 		template <class... TArgumentTypes>
-		auto ResolveFromArgumentTypes(EResolveErrorBehavior ErrorBehavior) const
+		auto TryGetFromArgumentTypes(EResolveErrorBehavior ErrorBehavior) const
 		{
-			return MakeTuple(this->ResolveFromArgumentType<TArgumentTypes>(ErrorBehavior)...);
+			return this->template TryGetFromArgumentsNamed<TArgumentTypes...>(ErrorBehavior, (TVoid<TArgumentTypes>(), NAME_None)...);
 		}
 
 		template <class TTupleWithArgsType>
@@ -392,14 +653,14 @@ namespace DI
 		template <class... TTupleWithArgsTypes>
 		struct TResolveTuple<TTuple<TTupleWithArgsTypes...>>
 		{
-			static TTuple<TTupleWithArgsTypes...> Resolve(const TInjector& Injector, EResolveErrorBehavior ErrorBehavior)
+			static TOptional<TTuple<TTupleWithArgsTypes...>> Resolve(const TInjector& Injector, EResolveErrorBehavior ErrorBehavior)
 			{
-				return Injector.ResolveFromArgumentTypes<TTupleWithArgsTypes...>(ErrorBehavior);
+				return Injector.TryGetFromArgumentTypes<TTupleWithArgsTypes...>(ErrorBehavior);
 			}
 
-			static TTuple<TTupleWithArgsTypes...> ResolveNamed(const TInjector& Injector, EResolveErrorBehavior ErrorBehavior, FName BindingNames...)
+			static TOptional<TTuple<TTupleWithArgsTypes...>> ResolveNamed(const TInjector& Injector, EResolveErrorBehavior ErrorBehavior, FName BindingNames...)
 			{
-				return Injector.ResolveFromArgumentNames<TTupleWithArgsTypes...>(ErrorBehavior, BindingNames);
+				return Injector.TryGetFromArgumentsNamed<TTupleWithArgsTypes...>(ErrorBehavior, BindingNames);
 			}
 		};
 
@@ -409,24 +670,36 @@ namespace DI
 			return TResolveTuple<TTupleWithArgsType>::Resolve(*this, ErrorBehavior);
 		}
 
-		template <class TTupleWithArgsType, class ...TNames>
+		template <class TTupleWithArgsType, class... TNames>
 		auto ResolveFromArgumentTypesTupleNamed(EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
 			return TResolveTuple<TTupleWithArgsType>::ResolveNamed(*this, ErrorBehavior, BindingNames...);
 		}
 
-		template <class TArgumentType>
-		auto ResolveFromArgumentType(EResolveErrorBehavior ErrorBehavior) const
+		template <class... TArgumentTypes, class... TNames>
+		auto TryGetFromArgumentsNamed(EResolveErrorBehavior ErrorBehavior, TNames... Names) const
 		{
-			static_assert(CHasType<TBindingInstPtrBaseType<TArgumentType>>,
-				"The Argument Type cannot be used for dependency injection. If you cannot change it, resolve each argument individually and call the function manually.");
-			return this->DiContainer.Resolve().template TryGet<typename TBindingInstPtrBaseType<TArgumentType>::Type>(ErrorBehavior);
+			auto ResolvedPointers = MakeTuple(DiContainer.Resolve().template TryGetNamed<typename TBindingInstBaseType<TArgumentTypes>::Type>(Names, ErrorBehavior)...);
+			return TryDerefAllInstances(ResolvedPointers);
 		}
 
-		template <class... TArgumentTypes, class ...TNames>
-		auto ResolveFromArgumentNames(EResolveErrorBehavior ErrorBehavior, TNames... Names) const
+		template<class TCallable, class TOptionalTuple, class... TExtraArgs>
+		static auto TryApplyOptionalTuple(TCallable Callable, TOptionalTuple OptionalTuple, TExtraArgs&&... ExtraArgs) // -> TOptional<TRetVal>
 		{
-			return MakeTuple(DiContainer.Resolve().template TryGetNamed<typename TBindingInstRefBaseType<TArgumentTypes>::Type>(Names, ErrorBehavior)...);
+			using TRetVal = typename FunctionTraits::TFunctionTraits<TCallable>::ResultType;
+			if (OptionalTuple.IsSet())
+			{
+				if constexpr (!std::is_same_v<TRetVal, void>)
+				{
+					return TOptional<TRetVal>(OptionalTuple->ApplyAfter(MoveTemp(Callable), MoveTemp(ExtraArgs)...));
+				}
+				else if constexpr (std::is_same_v<TRetVal, void>)
+				{
+					OptionalTuple->ApplyAfter(MoveTemp(Callable), MoveTemp(ExtraArgs)...);
+					return TOptional<TRetVal>(true);
+				}
+			}
+			return TOptional<TRetVal>();
 		}
 
 		TDiContainer& DiContainer;

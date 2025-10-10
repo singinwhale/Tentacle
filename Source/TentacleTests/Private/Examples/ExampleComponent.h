@@ -5,9 +5,11 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Contexts/AutoInjectableInterface.h"
+#include "Mocks/SimpleService.h"
 #include "ExampleComponent.generated.h"
 
 
+class FSimpleNativeService;
 class USimpleUService;
 
 UCLASS(HideDropdown, NotBlueprintable)
@@ -22,8 +24,11 @@ public:
 	virtual void AutoInject_Implementation(const TScriptInterface<IDiContextInterface>& DiContext) override;
 	// --
 
-	void InjectDependencies(TObjectPtr<USimpleUService> SimpleUService);
+	TObjectPtr<USimpleUService> InjectDependencies(TObjectPtr<USimpleUService> SimpleUService);
 	void InjectDependenciesWithExtraArgs(TObjectPtr<USimpleUService> InSimpleUService, FString ExtraString);
+
+	TTuple<TObjectPtr<USimpleUService>, TScriptInterface<ISimpleInterface>, TSharedRef<FSimpleNativeService>, const FSimpleUStructService*>
+	ComplexInjectDependencies(TObjectPtr<USimpleUService> InSimpleUService, TScriptInterface<ISimpleInterface> InterfaceService, TSharedRef<FSimpleNativeService> SimpleNativeService, const FSimpleUStructService& SimpleStruct);
 
 	UPROPERTY()
 	TObjectPtr<USimpleUService> SimpleUService;

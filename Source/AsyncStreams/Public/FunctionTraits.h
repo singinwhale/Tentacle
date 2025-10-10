@@ -1,5 +1,7 @@
 ﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
+#pragma once
+
 namespace FunctionTraits
 {
 	template <typename T>

@@ -16,6 +16,7 @@ public class AsyncStreamsTests : ModuleRules
             new string[]
             {
                 "Core",
+                "Engine",
                 "AsyncStreams"
             }
         );

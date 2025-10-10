@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 namespace DI
 {
 	template <bool Predicate, typename TypeA = void, typename TypeB = void>
@@ -105,84 +107,72 @@ namespace DI
 		/* TNativeType */ TWeakPtr<T>>;
 
 
-	/* Gets the base/inner/raw type from a TBindingInstRef */
-	template <class T>
-	struct TBindingInstRefBaseType;
 
+	/* Gets the base/inner/raw type from a TBindingInstPtr or TBindingInstRef */
 	template <class T>
-	struct TBindingInstRefBaseType<T&>
+	struct TBindingInstBaseType
 	{
-		using Type = typename TDecay<T>::Type;
+		using Type = T;
 	};
 
 	template <class T>
-	struct TBindingInstRefBaseType<TScriptInterface<T>>
+	struct TBindingInstBaseType<const T&>
 	{
-		using Type = typename TScriptInterface<T>::InterfaceType;
+		using Type = typename TBindingInstBaseType<typename TDecay<T>::Type>::Type;
 	};
 
 	template <class T>
-	struct TBindingInstRefBaseType<TSharedRef<T>>
+	struct TBindingInstBaseType<T&>
 	{
-		using Type = typename TSharedRef<T>::ElementType;
+		using Type = typename TBindingInstBaseType<typename TDecay<T>::Type>::Type;
 	};
 
 	template <class T>
-	struct TBindingInstRefBaseType<TObjectPtr<T>>
+	struct TBindingInstBaseType<TScriptInterface<T>>
 	{
-		using Type = typename TDecay<T>::Type;
-	};
-
-	/* Gets the base/inner/raw type from a TBindingInstPtr */
-	template <class T>
-	struct TBindingInstPtrBaseType;
-
-	template <class T>
-	struct TBindingInstPtrBaseType<const T&>
-	{
-		using Type = typename TBindingInstPtrBaseType<typename TDecay<T>::Type>::Type;
+		using Type = T;
 	};
 
 	template <class T>
-	struct TBindingInstPtrBaseType<T&>
+	struct TBindingInstBaseType<TScriptInterface<T>&>
 	{
-		using Type = typename TBindingInstPtrBaseType<typename TDecay<T>::Type>::Type;
+		using Type = T;
 	};
 
 	template <class T>
-	struct TBindingInstPtrBaseType<TScriptInterface<T>>
+	struct TBindingInstBaseType<const TScriptInterface<T>&>
 	{
-		using Type = typename TScriptInterface<T>::InterfaceType;
+		using Type = T;
 	};
 
 	template <class T>
-	struct TBindingInstPtrBaseType<TScriptInterface<T>&>
+	struct TBindingInstBaseType<TSharedPtr<T>>
 	{
-		using Type = typename TScriptInterface<T>::InterfaceType;
+		using Type = T;
 	};
 
 	template <class T>
-	struct TBindingInstPtrBaseType<const TScriptInterface<T>&>
+	struct TBindingInstBaseType<TSharedRef<T>>
 	{
-		using Type = typename TScriptInterface<T>::InterfaceType;
+		using Type = T;
 	};
 
 	template <class T>
-	struct TBindingInstPtrBaseType<TSharedPtr<T>>
+	struct TBindingInstBaseType<TOptional<T>>
 	{
-		using Type = typename TSharedPtr<T>::ElementType;
+		using Type = T;
 	};
 
 	template <class T>
-	struct TBindingInstPtrBaseType<TOptional<T>>
+	struct TBindingInstBaseType<TObjectPtr<T>>
 	{
-		using Type = typename TSharedPtr<T>::ElementType;
+		using Type = T;
 	};
 
 	template <class T>
-	struct TBindingInstPtrBaseType<TObjectPtr<T>>
+	struct TBindingInstBaseType<const TObjectPtr<T>>
 	{
-		using Type = typename TObjectPtr<T>::ElementType;
+		using Type = T;
 	};
 
 	template<typename T>
@@ -241,39 +231,8 @@ namespace DI
 	template <class T>
 	struct TToRefType
 	{
-		using Type = TBindingInstRef<typename TBindingInstPtrBaseType<T>::Type>;
+		using Type = TBindingInstRef<typename TBindingInstBaseType<T>::Type>;
 	};
-
-
-	/*template <class T>
-	TOptional<TBindingInstRef<T>> ResolveWeakBindingInstPtr(const TBindingInstWeakPtr<T>& WeakPtr);
-
-	void asf()
-	{
-		if constexpr (std::is_same_v<TBindingInstWeakPtr<T>, TWeakObjectPtr<T>>)
-		{
-			TObjectPtr<T> Object = WeakPtr.Get();
-			return Object ? Object : TOptional<T>();
-		}
-		else if constexpr (std::is_same_v<TBindingInstWeakPtr<T>, TWeakInterfacePtr<T>>)
-		{
-			return WeakPtr.IsValid() ? WeakPtr.ToScriptInterface() : TOptional<T>{};
-		}
-		else if constexpr (std::is_same_v<TBindingInstWeakPtr<T>, T>)
-		{
-			return WeakPtr;
-		}
-		else if constexpr (std::is_same_v<TBindingInstWeakPtr<T>, TWeakPtr<T>>)
-		{
-			TSharedPtr<T> SharedPtr = WeakPtr.Pin();
-			return SharedPtr ? SharedPtr.ToSharedRef() : TOptional<T>{};
-		}
-		else
-		{
-			static_assert(false, "Unknown weak ptr type");
-			return TOptional<T>{};
-		}
-	}*/
 
 	template <class T>
 	TOptional<TObjectPtr<T>> ResolveWeakBindingInstPtr(const TWeakObjectPtr<T>& WeakPtr)
@@ -321,30 +280,6 @@ namespace DI
 		return Instance.ToWeakPtr();
 	}
 
-
-
-	namespace Private
-	{
-		template<typename ...TTupleTypes>
-		std::tuple<TTupleTypes...> TTupleToStdTuple(TTuple<TTupleTypes...> Tuple)
-		{
-			return Tuple.ApplyAfter(&std::make_tuple);
-		}
-		template<typename ...TTupleTypes>
-		TTuple<TTupleTypes...> TTupleFromStdTuple(std::tuple<TTupleTypes...> Tuple)
-		{
-			return std::apply(&MakeTuple, Forward(Tuple));
-		}
-
-
-	}
-
-	template<typename ...TTuples>
-	auto TupleCat(TTuples ...Tuples)
-	{
-		return Private::TTupleFromStdTuple(std::tuple_cat(Private::TTupleToStdTuple(Tuples)...));
-	}
-
 	/**
 	 * Creates a TTuple<T, T, ..., T> of the requested length with every element initialised to Value.
 	 * Example:
@@ -365,4 +300,49 @@ namespace DI
 
 	template<class T>
 	using TVoid = decltype(static_cast<void>(DeclVal<T>()));
+
+
+	template<class T>
+	concept CConvertibleToBool = requires
+	{
+		static_cast<bool>(DeclVal<T>());
+	};
+	
+	template<class T>
+	struct TIsBindingPtrValid
+	{
+		static constexpr bool Check(const T& Value) { return true; }
+	};
+	
+	template<CConvertibleToBool T>
+	struct TIsBindingPtrValid<T>
+	{
+		static bool Check(const T& Value) { return static_cast<bool>(Value); }
+	};
+
+	template <class... TBindingInsts>
+	bool AreBindingInstsValid(const TTuple<TBindingInsts...>& Tuple)
+	{
+		bool bIsValid = true;
+		VisitTupleElements([&]<class T>(const T& Value)
+		{
+			bIsValid = bIsValid && TIsBindingPtrValid<T>::Check(Value);
+		}, Tuple);
+		return bIsValid;
+	}
+
+	template <class... TBindingInstPtrs>
+	auto TryDerefAllInstances(TTuple<TBindingInstPtrs...> InstancePointers) // -> TOptional<TTuple<TBindingInstRef<T>...>>
+	{
+		using TOptionalResultType = TOptional<TTuple<TBindingInstRef<typename TBindingInstBaseType<TBindingInstPtrs>::Type>...>>;
+		if (AreBindingInstsValid(InstancePointers))
+		{
+			return TOptionalResultType(TransformTuple(InstancePointers, [](const auto& InstancePointer) {
+				return ToRefType(InstancePointer);
+			}));
+		}
+		return TOptionalResultType();
+	}
+	
+	
 }

@@ -12,14 +12,14 @@ void UExampleComponent::AutoInject_Implementation(const TScriptInterface<IDiCont
 {
 	// Here are mulitple examples of how to resolve dependencies and subsequently binding oneself, just pick one
 
-	DiContext->DiInject().AsyncIntoFunctionWithNames(*this, &UExampleComponent::InjectDependencies, "SimpleService")
+	DiContext->DiInject().AsyncIntoUObjectNamed(*this, &UExampleComponent::InjectDependencies, "SimpleService")
 	         .ThenBindInstance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 
-	DiContext->DiInject().AsyncIntoFunctionByType(*this, &UExampleComponent::InjectDependencies)
+	DiContext->DiInject().AsyncIntoUObject(*this, &UExampleComponent::InjectDependencies)
 	         .ThenBindInstance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 
 	DiContext->DiResolve().WaitForMany<USimpleUService, UExampleComponent>()
-	         .ExpandNext([this, DiContainer = DiContext->GetDiContainer().AsShared()](TOptional<TObjectPtr<USimpleUService>> Service, TOptional<TObjectPtr<UExampleComponent>>)
+	         .AndThenExpand([this, DiContainer = DiContext->GetDiContainer().AsShared()](TOptional<TObjectPtr<USimpleUService>> Service, TOptional<TObjectPtr<UExampleComponent>>)
 	         {
 		         this->InjectDependencies(*Service);
 		         DiContainer->Bind().Instance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
@@ -27,16 +27,23 @@ void UExampleComponent::AutoInject_Implementation(const TScriptInterface<IDiCont
 	DiContext->DiBind().Instance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 }
 
-void UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService)
+TObjectPtr<USimpleUService> UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService)
 {
 	UE_LOG(LogTemp, Log, TEXT("Injected: %s"), *InSimpleUService->GetName());
 	SimpleUService = InSimpleUService;
+	return SimpleUService;
 }
 
 void UExampleComponent::InjectDependenciesWithExtraArgs(TObjectPtr<USimpleUService> InSimpleUService, FString InExtraString)
 {
 	SimpleUService = InSimpleUService;
 	ExtraString = InExtraString;
+}
+
+TTuple<TObjectPtr<USimpleUService>, TScriptInterface<ISimpleInterface>, TSharedRef<FSimpleNativeService>, const FSimpleUStructService*> UExampleComponent::ComplexInjectDependencies(
+	TObjectPtr<USimpleUService> InSimpleUService, TScriptInterface<ISimpleInterface> InterfaceService, TSharedRef<FSimpleNativeService> SimpleNativeService, const FSimpleUStructService& SimpleStruct)
+{
+	return MakeTuple(InSimpleUService, InterfaceService, SimpleNativeService, &SimpleStruct);
 }
 
 void UExampleComponent::BeginPlay()

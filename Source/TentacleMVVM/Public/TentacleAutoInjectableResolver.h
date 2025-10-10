@@ -17,7 +17,7 @@ class TENTACLEMVVM_API UTentacleAutoInjectableResolver : public UMVVMViewModelCo
 	GENERATED_BODY()
 
 public:
-	virtual UObject* CreateInstance(const UClass* ExpectedType, UUserWidget* UserWidget, const UMVVMView* View) const override;
+	virtual UObject* CreateInstance(const UClass* ExpectedType, const UUserWidget* UserWidget, const UMVVMView* View) const override;
 #if WITH_EDITOR
 	virtual bool DoesSupportViewModelClass(const UClass* Class) const override;
 #endif
