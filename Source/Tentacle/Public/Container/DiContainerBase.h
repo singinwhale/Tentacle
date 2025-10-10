@@ -43,10 +43,10 @@ namespace DI
 		FConnectedDiContainer() = default;
 		virtual ~FConnectedDiContainer() = default;
 
-
 		/**
 		 * @return true if the connection has been established successfully, false otherwise.
 		 * @note Implementers should log an error with further information.
+		 * @note The parent should call RetryAllPendingWaits if there are already any instances bound. 
 		 */
 		virtual bool TryConnectSubcontainer(TSharedRef<FConnectedDiContainer> ConnectedDiContainer) = 0;
 
@@ -60,6 +60,12 @@ namespace DI
 		 * @param NewBinding - the new binding
 		 */
 		virtual void NotifyInstanceBound(const DI::FBinding& NewBinding) const = 0;
+
+		/**
+		 * Requests this container to reevaluate all pending bindings in case they have become available through adding a parent container.
+		 * After this operation the container and its children should not have any more pending waits for already bound bindings.
+		 */
+		virtual void RetryAllPendingWaits() const = 0;
 
 		/**
 		 * Try to find a binding in this container.

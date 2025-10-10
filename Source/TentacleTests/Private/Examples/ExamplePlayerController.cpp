@@ -11,33 +11,43 @@ AExamplePlayerController::AExamplePlayerController()
 	DiContextComponent = CreateDefaultSubobject<UDiContextComponent>("DiContextComponent");
 }
 
-void AExamplePlayerController::SetPlayer(UPlayer* InPlayer)
+void AExamplePlayerController::PreInitializeComponents()
+{
+	Super::PreInitializeComponents();
+
+	UWorld* World = GEngine->GetWorldFromContextObjectChecked(this);
+	TScriptInterface<IDiContextInterface> WorldDiContext = DI::TryFindDiContext(World);
+	ForkingDiContainer->AddParentContainer(WorldDiContext->GetDiContainer().AsShared(), 0);
+	
+	DiContextComponent->SetAsParentOnAllComponentsOf(this);
+}
+
+void AExamplePlayerController::ReceivedPlayer()
 {
 	if (class ULocalPlayer* LocalPlayer = GetLocalPlayer())
 	{
-		if (UDiLocalPlayerSubsystem* DiLocalPlayerSubsystem = LocalPlayer->GetSubsystem<UDiLocalPlayerSubsystem>())
+		if (TScriptInterface<IDiContextInterface> LocalPlayerDiContext = DI::TryFindDiContext(LocalPlayer))
 		{
-			TSharedRef<DI::FChainedDiContainer> LocalPlayerContainer = DiLocalPlayerSubsystem->GetDiContainer().AsShared();
-			ForkingDiContainer->RemoveParentContainer(LocalPlayerContainer);
-		}
-	}
-
-	Super::SetPlayer(InPlayer);
-
-	if (class ULocalPlayer* LocalPlayer = GetLocalPlayer())
-	{
-		if (UDiLocalPlayerSubsystem* DiLocalPlayerSubsystem = LocalPlayer->GetSubsystem<UDiLocalPlayerSubsystem>())
-		{
-			TSharedRef<DI::FChainedDiContainer> LocalPlayerContainer = DiLocalPlayerSubsystem->GetDiContainer().AsShared();
+			TSharedRef<DI::FChainedDiContainer> LocalPlayerContainer = LocalPlayerDiContext->GetDiContainer().AsShared();
 			ForkingDiContainer->AddParentContainer(LocalPlayerContainer, 1);
 		}
 	}
 }
 
+void AExamplePlayerController::OnNetCleanup(class UNetConnection* Connection)
+{
+	TryRemoveDiChildFromLocalPlayerContainer();
+	Super::OnNetCleanup(Connection);
+}
+
+void AExamplePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	TryRemoveDiChildFromLocalPlayerContainer();
+	Super::EndPlay(EndPlayReason);
+}
+
 void AExamplePlayerController::SetPawn(APawn* InPawn)
 {
-	if (!GetDefault<UTentacleSettings>()->bEnableDefaultChaining)
-
 	if (TScriptInterface<IDiContextInterface> PawnDiContext = DI::TryGetLocalDiContext(GetPawn()))
 	{
 		PawnDiContext->GetDiContainer().SetParentContainer(nullptr);
@@ -51,21 +61,15 @@ void AExamplePlayerController::SetPawn(APawn* InPawn)
 	}
 }
 
-void AExamplePlayerController::PreInitializeComponents()
-{
-	Super::PreInitializeComponents();
 
-	if (UDiWorldSubsystem* DiWorldSubsystem = UDiWorldSubsystem::TryGet(this))
+void AExamplePlayerController::TryRemoveDiChildFromLocalPlayerContainer()
+{
+	if (class ULocalPlayer* LocalPlayer = GetLocalPlayer())
 	{
-		ForkingDiContainer->AddParentContainer(DiWorldSubsystem->GetDiContainer().AsShared(), 0);
+		if (TScriptInterface<IDiContextInterface> LocalPlayerDiContext = DI::TryFindDiContext(LocalPlayer))
+		{
+			TSharedRef<DI::FChainedDiContainer> LocalPlayerContainer = LocalPlayerDiContext->GetDiContainer().AsShared();
+			ForkingDiContainer->RemoveParentContainer(LocalPlayerContainer);
+		}
 	}
-
-	DiContextComponent->SetAsParentOnAllComponentsOf(this);
-}
-
-void AExamplePlayerController::PostInitializeComponents()
-{
-	Super::PostInitializeComponents();
-
-	DiContextComponent->GetDiContainer().SetParentContainer(ForkingDiContainer);
 }

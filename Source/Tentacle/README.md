@@ -162,7 +162,7 @@ Engine <-- Game Instance <-- World
 ```
 
 It is recommended to link the Player Controller to the Local Player and to the World.
-It is furthermore recommended to link the Pawn to the Player Controller. 
+If your game never repossesses the Pawn then you can also parent the Pawn to the Player Controller. 
 See the [ExamplePlayerController](../TentacleTests/Private/Examples/ExamplePlayerController.cpp) for a reference implementation.
 
 With the structure implemented by the example player controller, it looks like so:

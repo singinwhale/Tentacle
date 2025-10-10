@@ -27,16 +27,24 @@ public:
 	virtual DI::FChainedDiContainer& GetDiContainer() override { return DiContextComponent->GetDiContainer(); }
 	virtual const DI::FChainedDiContainer& GetDiContainer() const override { return DiContextComponent->GetDiContainer(); }
 	// - APlayerController
-	virtual void SetPlayer(UPlayer* InPlayer) override;
+	virtual void ReceivedPlayer() override;
+	virtual void OnNetCleanup(class UNetConnection* Connection) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetPawn(APawn* InPawn) override;
 	// - AActor
 	virtual void PreInitializeComponents() override;
-	virtual void PostInitializeComponents() override;
 	// --
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Dependency Injection")
 	TObjectPtr<UDiContextComponent> DiContextComponent;
-private:
 
+private:
+	void TryRemoveDiChildFromLocalPlayerContainer();
+
+	/**
+	 * Virtual container that only delegates to other containers.
+	 * The container that actually saves bindings on this class lies on the DiContextComponent.
+	 * This one is used to fork to the World and LocalPlayer once it is set.
+	 */
 	TSharedRef<DI::FForkingDiContainer> ForkingDiContainer = MakeShared<DI::FForkingDiContainer>();
 };

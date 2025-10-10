@@ -6,22 +6,22 @@
 void DI::FForkingDiContainer::AddParentContainer(TSharedRef<FConnectedDiContainer> DiContainer, int32 Priority)
 {
 	// Remove all existing instances disregarding priority.
-	// This will cause the priority to be "overwritten".
+	// This will cause the priority to be "overwritten" if you add the same DiContainer with a different priority.
 	ParentContainers.RemoveAll([DiContainer](const auto& PrioritizedParent)
 	{
 		return PrioritizedParent.Value == DiContainer;
 	});
 
-	if (!DiContainer->TryConnectSubcontainer(AsShared()))
-	{
-		UE_LOG(LogDependencyInjection, Error, TEXT("FForkingDiContainer::AddParentContainer: Failed to connect to parent container."));
-		return;
-	}
 	ParentContainers.Add({Priority, MoveTemp(DiContainer)});
 	ParentContainers.StableSort([](const auto& Lhs, const auto& Rhs)
 	{
 		return Lhs.Key >= Rhs.Key;
 	});
+	
+	if (!DiContainer->TryConnectSubcontainer(AsShared()))
+	{
+		UE_LOG(LogDependencyInjection, Error, TEXT("FForkingDiContainer::AddParentContainer: Failed to connect to parent container."));
+	}
 }
 
 void DI::FForkingDiContainer::RemoveParentContainer(TWeakPtr<FConnectedDiContainer> DiContainer)
@@ -47,6 +47,7 @@ void DI::FForkingDiContainer::RemoveParentContainer(TWeakPtr<FConnectedDiContain
 bool DI::FForkingDiContainer::TryConnectSubcontainer(TSharedRef<FConnectedDiContainer> ConnectedDiContainer)
 {
 	ChildrenContainers.AddUnique(ConnectedDiContainer);
+	ConnectedDiContainer->RetryAllPendingWaits();
 	return true;
 }
 
@@ -67,6 +68,21 @@ void DI::FForkingDiContainer::NotifyInstanceBound(const DI::FBinding& NewBinding
 		}
 
 		ChainedDiContainer->NotifyInstanceBound(NewBinding);
+	}
+}
+
+void DI::FForkingDiContainer::RetryAllPendingWaits() const
+{
+	for (auto ChildrenContainerIt = ChildrenContainers.CreateIterator(); ChildrenContainerIt; ++ChildrenContainerIt)
+	{
+		TSharedPtr<FConnectedDiContainer> ChainedDiContainer = ChildrenContainerIt->Pin();
+		if (!ChainedDiContainer.IsValid())
+		{
+			ChildrenContainerIt.RemoveCurrent();
+			continue;
+		}
+
+		ChainedDiContainer->RetryAllPendingWaits();
 	}
 }
 

@@ -35,6 +35,7 @@ void DI::FChainedDiContainer::AddReferencedObjects(FReferenceCollector& Collecto
 bool DI::FChainedDiContainer::TryConnectSubcontainer(TSharedRef<FConnectedDiContainer> ConnectedDiContainer)
 {
 	ChildrenContainers.AddUnique(ConnectedDiContainer);
+	ConnectedDiContainer->RetryAllPendingWaits();
 	return true;
 }
 
@@ -56,6 +57,30 @@ void DI::FChainedDiContainer::NotifyInstanceBound(const DI::FBinding& NewBinding
 		}
 
 		ChainedDiContainer->NotifyInstanceBound(NewBinding);
+	}
+}
+
+void DI::FChainedDiContainer::RetryAllPendingWaits() const
+{
+	TArray<FBindingId> BindingIds = Subscriptions.GetAllPendingBindingIds();
+	for (const FBindingId& BindingId : BindingIds)
+	{
+		if (TSharedPtr<DI::FBinding> Binding = FindBinding(BindingId))
+		{
+			Subscriptions.NotifyInstanceBound(*Binding);
+		}
+	}
+
+	for (auto ChildrenContainerIt = ChildrenContainers.CreateIterator(); ChildrenContainerIt; ++ChildrenContainerIt)
+	{
+		TSharedPtr<FConnectedDiContainer> ChildContainer = ChildrenContainerIt->Pin();
+		if (!ChildContainer.IsValid())
+		{
+			ChildrenContainerIt.RemoveCurrent();
+			continue;
+		}
+
+		ChildContainer->RetryAllPendingWaits();
 	}
 }
 

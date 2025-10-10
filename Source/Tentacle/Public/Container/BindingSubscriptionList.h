@@ -22,6 +22,7 @@ namespace DI
 		void NotifyInstanceBound(const DI::FBinding& Binding);
 
 		FOnInstanceBound& SubscribeOnce(const FBindingId& BindingId);
+		TArray<FBindingId> GetAllPendingBindingIds() const;
 
 	private:
 		TMap<FBindingId, FOnInstanceBound> BindingToSubscriptions = {};

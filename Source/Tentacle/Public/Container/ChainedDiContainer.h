@@ -72,6 +72,7 @@ namespace DI
 		virtual bool TryConnectSubcontainer(TSharedRef<FConnectedDiContainer> ConnectedDiContainer) override;
 		virtual bool TryDisconnectSubcontainer(TSharedRef<FConnectedDiContainer> ConnectedDiContainer) override;
 		virtual void NotifyInstanceBound(const DI::FBinding& NewBinding) const override;
+		virtual void RetryAllPendingWaits() const override;
 		virtual TSharedPtr<DI::FBinding> FindConnectedBinding(const DI::FBindingId& BindingId) const override;
 		// --
 

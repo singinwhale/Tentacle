@@ -19,6 +19,13 @@ namespace DI
 		return BindingToSubscriptions.FindOrAdd(BindingId);
 	}
 
+	TArray<FBindingId> FBindingSubscriptionList::GetAllPendingBindingIds() const
+	{
+		TArray<FBindingId> OutIds;
+		BindingToSubscriptions.GetKeys(OutIds);
+		return OutIds;
+	}
+
 	bool FBindingSubscriptionList::Unsubscribe(const FBindingId& BindingId, FDelegateHandle DelegateHandle)
 	{
 		FOnInstanceBound* Subscriptions = BindingToSubscriptions.Find(BindingId);
