@@ -12,10 +12,10 @@ void UExampleComponent::AutoInject_Implementation(const TScriptInterface<IDiCont
 {
 	// Here are mulitple examples of how to resolve dependencies and subsequently binding oneself, just pick one
 
-	DiContext->DiInject().AsyncIntoFunctionWithNames(*this, &UExampleComponent::InjectDependencies, "SimpleService")
+	DiContext->DiInject().AsyncIntoUObjectNamed(*this, &UExampleComponent::InjectDependencies, "SimpleService")
 	         .ThenBindInstance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 
-	DiContext->DiInject().AsyncIntoFunctionByType(*this, &UExampleComponent::InjectDependencies)
+	DiContext->DiInject().AsyncIntoUObject(*this, &UExampleComponent::InjectDependencies)
 	         .ThenBindInstance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 
 	DiContext->DiResolve().WaitForMany<USimpleUService, UExampleComponent>()
@@ -27,10 +27,11 @@ void UExampleComponent::AutoInject_Implementation(const TScriptInterface<IDiCont
 	DiContext->DiBind().Instance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 }
 
-void UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService)
+TObjectPtr<USimpleUService> UExampleComponent::InjectDependencies(TObjectPtr<USimpleUService> InSimpleUService)
 {
 	UE_LOG(LogTemp, Log, TEXT("Injected: %s"), *InSimpleUService->GetName());
 	SimpleUService = InSimpleUService;
+	return SimpleUService;
 }
 
 void UExampleComponent::InjectDependenciesWithExtraArgs(TObjectPtr<USimpleUService> InSimpleUService, FString InExtraString)

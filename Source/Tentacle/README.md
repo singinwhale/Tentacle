@@ -22,7 +22,7 @@ TObjectPtr<USimpleService> ResolvedService = DiContainer.Resolve().TryGet<USimpl
 check(ResolvedService == Service);
 
 // Or call a function with its arguments populated from the container
-DiContainer.Inject().AsyncIntoFunctionByType(*ExampleComponent, &UExampleComponent::InjectDependencies);
+DiContainer.Inject().AsyncIntoUObject(*ExampleComponent, &UExampleComponent::InjectDependencies);
 ```
 
 You can find more examples in the [Examples Folder](../TentacleTests/Private/Examples).
@@ -97,7 +97,7 @@ The general case would go something like this:
 
 ```c++
 UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
-DiContainer.Inject().AsyncIntoFunctionByType(*ExampleComponent, &UExampleComponent::InjectDependencies);
+DiContainer.Inject().AsyncIntoUObject(*ExampleComponent, &UExampleComponent::InjectDependencies);
 ```
 
 #### Actor Components

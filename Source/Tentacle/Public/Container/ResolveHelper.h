@@ -220,20 +220,36 @@ namespace DI
 		 * @param BindingNames - List the names of the bindings to resolve. Use NAME_None for type-only bindings.
 		 * @return A Weak Future Set that completes once all binding requests have been completed or once the container is dropped.
 		 */
-		template <class... Ts, class ...TNames>
-		TWeakFutureSet<TOptional<TBindingInstRef<Ts>>...> WaitForManyNamed( UObject* WaitingObject, EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
+		template <class... Ts, class... TNames>
+		TWeakFutureSet<TBindingInstPtr<Ts>...> WaitForManyNamed(UObject* WaitingObject, EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
 			TTuple<TWeakFuture<TBindingInstRef<Ts>>...> Futures = TTuple<TWeakFuture<TBindingInstRef<Ts>>...>(
 				this->template WaitForNamed<Ts>(BindingNames, WaitingObject, ErrorBehavior)...
 			);
-			return AwaitAllWeak(MoveTemp(Futures));
+			TWeakFuture<TTuple<TBindingInstPtr<Ts>...>> FuturePointers =
+				AwaitAllWeak(MoveTemp(Futures))
+				.Next([](TOptional<TTuple<TOptional<TBindingInstRef<Ts>>...>> Values) -> TTuple<TBindingInstPtr<Ts>...>
+				{
+					if (!Values.IsSet()) 
+						return {};
+					
+					return TransformTuple(*Values, []<class TBindingRef>(const TOptional<TBindingRef>& Result)
+					{
+						using T = TBindingInstRefBaseType<TBindingRef>::Type;
+						if (Result.IsSet())
+						{
+							return TBindingInstPtr<T>(*Result);
+						}
+						return TBindingInstPtr<T>();
+					});
+				});
+			return TWeakFutureSet<TBindingInstPtr<Ts>...>(MoveTemp(FuturePointers));
 		}
-		template <class... Ts, class ...TNames>
-		TWeakFutureSet<TOptional<TBindingInstRef<Ts>>...> WaitForManyNamed( UObject* WaitingObject, TNames... BindingNames) const {
-			TTuple<TWeakFuture<TBindingInstRef<Ts>>...> Futures = TTuple<TWeakFuture<TBindingInstRef<Ts>>...>(
-				this->template WaitForNamed<Ts>(BindingNames, WaitingObject, GDefaultResolveErrorBehavior)...
-			);
-			return AwaitAllWeak(MoveTemp(Futures));
+
+		template <class... Ts, class... TNames>
+		TWeakFutureSet<TBindingInstPtr<Ts>...> WaitForManyNamed(UObject* WaitingObject, TNames... BindingNames) const
+		{
+			return this->WaitForManyNamed(WaitingObject, GDefaultResolveErrorBehavior, BindingNames...);
 		}
 
 		/**

@@ -712,7 +712,8 @@ public:
 };
 
 /**
- * Template for unshared futures.
+ * A future that represents a set of futures.
+ * This set will only be valid if all its futures succeed.
  */
 template <typename... ResultTypes>
 class TWeakFutureSet
@@ -723,7 +724,8 @@ class TWeakFutureSet
 public:
 	TWeakFutureSet(TWeakFuture<TTuple<ResultTypes...>>&& WeakFuture)
 		: Super(MoveTemp(WeakFuture))
-	{}
+	{
+	}
 
 	/**
 	 * Expose Next functionality
@@ -1630,7 +1632,7 @@ namespace AwaitAllWeakPrivate
 		};
 	}
 
-	template <int32 I, int32 ...Is, class... ResultTypes>
+	template <int32 I, int32 ... Is, class... ResultTypes>
 	auto MakeTupleValidFunction(TSharedRef<TTuple<TOptional<ResultTypes>...>> BufferState, TIntegerSequence<int32, I, Is...>)
 	{
 		auto NextValidFunc = MakeTupleValidFunction(BufferState, TIntegerSequence<int32, Is...>());
@@ -1645,7 +1647,7 @@ namespace AwaitAllWeakPrivate
 	{
 	}
 
-	template <int32 I, int32 ...Is, class... AllTs, typename TNewResultCallback>
+	template <int32 I, int32 ... Is, class... AllTs, typename TNewResultCallback>
 	void CollectFutures(TSharedRef<TTuple<TOptional<TOptional<AllTs>>...>>& BufferState, TNewResultCallback& NewResultCallback, TTuple<TWeakFuture<AllTs>...>& Futures, TIntegerSequence<int32, I, Is...>)
 	{
 		Futures.template Get<I>().Next(
@@ -1655,7 +1657,7 @@ namespace AwaitAllWeakPrivate
 				NewResultCallback(BufferState);
 			}
 		);
-		CollectFutures(BufferState, NewResultCallback, Futures, TIntegerSequence<int32,Is...>());
+		CollectFutures(BufferState, NewResultCallback, Futures, TIntegerSequence<int32, Is...>());
 	}
 }
 
@@ -1663,7 +1665,8 @@ namespace AwaitAllWeakPrivate
  * Await a tuple of futures.
  * This is very helpful for template magic involving variadic functions.
  * Each weak future will be resolved to an optional value type.
- * Once all futures have returned or have been dropped the future will complete.
+ * If the optional is unset this means that the corresponding future has been canceled.
+ * Once all futures have returned or have been canceled the future will complete.
  */
 template <class... ValTypes>
 TWeakFutureSet<TOptional<ValTypes>...> AwaitAllWeak(TTuple<TWeakFuture<ValTypes>...> Futures)
@@ -1680,7 +1683,7 @@ TWeakFutureSet<TOptional<ValTypes>...> AwaitAllWeak(TTuple<TWeakFuture<ValTypes>
 	{
 		if (TupleValidFunc(BufferState))
 		{
-			TTuple<TOptional<ValTypes>...> FinishedResults = TransformTuple( *BufferState, [](const auto& Result)
+			TTuple<TOptional<ValTypes>...> FinishedResults = TransformTuple(*BufferState, []<class T>(const TOptional<TOptional<T>>& Result)
 			{
 				checkf(Result.IsSet(), TEXT("TupleValidFunc was supposed to validate that all results are in!"));
 				return *Result;
@@ -1689,6 +1692,34 @@ TWeakFutureSet<TOptional<ValTypes>...> AwaitAllWeak(TTuple<TWeakFuture<ValTypes>
 		}
 	};
 
-	AwaitAllWeakPrivate::CollectFutures( BufferState, PromiseFulfillableFunc, Futures, TMakeIntegerSequence<int32, sizeof...(ValTypes)>() );
+	AwaitAllWeakPrivate::CollectFutures(BufferState, PromiseFulfillableFunc, Futures, TMakeIntegerSequence<int32, sizeof...(ValTypes)>());
 	return MoveTemp(FutureSet);
+}
+
+/**
+ * Await a tuple of futures.
+ * This is very helpful for template magic involving variadic functions.
+ * Each weak future will be resolved its value or its default value if the future has been canceled.
+ * Once all futures have returned or have been dropped the future will complete.
+ */
+template <class... ValTypes>
+TWeakFutureSet<ValTypes...> AwaitAllWeakOrDefault(TTuple<TWeakFuture<ValTypes>...> Futures)
+{
+	TWeakFuture<TTuple<ValTypes...>> ValueOrDefaultFuture =
+		AwaitAllWeak(MoveTemp(Futures))
+		.Next([](TOptional<TTuple<TOptional<ValTypes>...>> Values) -> TTuple<ValTypes...>
+		{
+			if (!Values.IsSet())
+				return {};
+
+			return TransformTuple(*Values, []<typename T>(const TOptional<T>& Result) -> T
+			{
+				if (Result.IsSet())
+				{
+					return *Result;
+				}
+				return T();
+			});
+		});
+	return TWeakFutureSet<ValTypes...>(MoveTemp(ValueOrDefaultFuture));
 }

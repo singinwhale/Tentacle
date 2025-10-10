@@ -152,37 +152,43 @@ namespace DI
 	template <class T>
 	struct TBindingInstPtrBaseType<TScriptInterface<T>>
 	{
-		using Type = typename TScriptInterface<T>::InterfaceType;
+		using Type = T;
 	};
 
 	template <class T>
 	struct TBindingInstPtrBaseType<TScriptInterface<T>&>
 	{
-		using Type = typename TScriptInterface<T>::InterfaceType;
+		using Type = T;
 	};
 
 	template <class T>
 	struct TBindingInstPtrBaseType<const TScriptInterface<T>&>
 	{
-		using Type = typename TScriptInterface<T>::InterfaceType;
+		using Type = T;
 	};
 
 	template <class T>
 	struct TBindingInstPtrBaseType<TSharedPtr<T>>
 	{
-		using Type = typename TSharedPtr<T>::ElementType;
+		using Type = T;
 	};
 
 	template <class T>
 	struct TBindingInstPtrBaseType<TOptional<T>>
 	{
-		using Type = typename TSharedPtr<T>::ElementType;
+		using Type = T;
 	};
 
 	template <class T>
 	struct TBindingInstPtrBaseType<TObjectPtr<T>>
 	{
-		using Type = typename TObjectPtr<T>::ElementType;
+		using Type = T;
+	};
+
+	template <class T>
+	struct TBindingInstPtrBaseType<const TObjectPtr<T>>
+	{
+		using Type = T;
 	};
 
 	template<typename T>

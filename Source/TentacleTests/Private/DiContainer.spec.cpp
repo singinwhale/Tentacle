@@ -154,7 +154,7 @@ void DiContainerSpec::Define()
 		It("should not resolve named UObjects with wrong name", [this]
 		{
 			TestFalse("DiContainer.Resolve().ResolveNamedInstance<USimpleUService>()",
-				bool(DiContainer.Resolve().TryGetNamed<USimpleUService>("SomeWrongName", DI::EResolveErrorBehavior::ReturnNull)));
+			          bool(DiContainer.Resolve().TryGetNamed<USimpleUService>("SomeWrongName", DI::EResolveErrorBehavior::ReturnNull)));
 		});
 		It("should not resolve named UInterfaces with wrong name", [this]
 		{
@@ -230,26 +230,29 @@ void DiContainerSpec::Define()
 			FSimpleUStructService UStructService = {};
 			TSharedRef<FSimpleNativeService> NativeServiceSharedPtr = MakeShared<FSimpleNativeService>();
 			DiContainer.Resolve().WaitForMany<USimpleUService, ISimpleInterface, FSimpleUStructService, FSimpleNativeService>()
-			.ExpandNext([DoneDelegate, this, UService, UInterfaceService, UStructService, NativeServiceSharedPtr](TOptional<TObjectPtr<USimpleUService>> ObjectService, TOptional<TScriptInterface<ISimpleInterface>> InterfaceService, TOptional<const FSimpleUStructService&> StructService, TOptional<TSharedRef<FSimpleNativeService>> NativeService)
-			{
-				if (TestTrue("ObjectService.IsSet()", ObjectService.IsSet()))
+				.ExpandNext([DoneDelegate, this, UService, UInterfaceService, UStructService, NativeServiceSharedPtr](TOptional<TObjectPtr<USimpleUService>> ObjectService,
+				                                                                                                      TOptional<TScriptInterface<ISimpleInterface>> InterfaceService,
+				                                                                                                      TOptional<const FSimpleUStructService&> StructService,
+				                                                                                                      TOptional<TSharedRef<FSimpleNativeService>> NativeService)
 				{
-					TestEqual("ObjectService", ObjectService->Get(), UService.Get());
-				}
-				if (TestTrue("InterfaceService.IsSet()", InterfaceService.IsSet()))
-				{
-					TestEqual<UObject*>("InterfaceService", InterfaceService->GetObject(), UInterfaceService.Get());
-				}
-				if (TestTrue("StructService.IsSet()", StructService.IsSet()))
-				{
-					TestEqual("StructService", *StructService, UStructService);
-				}
-				if (TestTrue("NativeService.IsSet()", NativeService.IsSet()))
-				{
-					TestEqual("NativeService", *NativeService, NativeServiceSharedPtr);
-				}
-				DoneDelegate.Execute();
-			});
+					if (TestTrue("ObjectService.IsSet()", ObjectService.IsSet()))
+					{
+						TestEqual("ObjectService", ObjectService->Get(), UService.Get());
+					}
+					if (TestTrue("InterfaceService.IsSet()", InterfaceService.IsSet()))
+					{
+						TestEqual<UObject*>("InterfaceService", InterfaceService->GetObject(), UInterfaceService.Get());
+					}
+					if (TestTrue("StructService.IsSet()", StructService.IsSet()))
+					{
+						TestEqual("StructService", *StructService, UStructService);
+					}
+					if (TestTrue("NativeService.IsSet()", NativeService.IsSet()))
+					{
+						TestEqual("NativeService", *NativeService, NativeServiceSharedPtr);
+					}
+					DoneDelegate.Execute();
+				});
 			DiContainer.Bind().Instance<USimpleUService>(UService);
 			DiContainer.Bind().Instance<ISimpleInterface>(UInterfaceService);
 			DiContainer.Bind().Instance<FSimpleUStructService>(UStructService);
@@ -268,50 +271,97 @@ void DiContainerSpec::Define()
 
 	Describe("Inject", [this]
 	{
-		BeforeEach([this]
+		Describe("Sync", [this]
 		{
-			DiContainer.Bind().Instance<USimpleUService>(NewObject<USimpleUService>());
-			DiContainer.Bind().Instance<FSimpleNativeService>(MakeShared<FSimpleNativeService>());
-		});
-		It("should inject into free functions", [this]
-		{
-			TestEqual("Service", DiContainer.Inject().IntoFunctionByType(&DI::InjectTest::InjectDependencies), DiContainer.Resolve().TryGet<USimpleUService>());
-		});
-		It("should inject into member functions", [this]
-		{
-			FExampleNative Native = {};
-			DiContainer.Inject().IntoFunctionByType(Native, &FExampleNative::Initialize);
-			TestEqual("NativeService", Native.SimpleNativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>());
-		});
-		It("should inject into uobject member functions", [this]
-		{
-			UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
-			DiContainer.Inject().IntoFunctionByType(*ExampleComponent, &UExampleComponent::InjectDependencies);
-			TestEqual("NativeService", ExampleComponent->SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
-		});
-
-		It("should inject into lambda functions with extra args", [this]
-		{
-			FExampleNative Native = {};
-			FString ExtraString("test");
-			DiContainer.Inject().IntoLambda([&](TSharedPtr<FSimpleNativeService> NativeService)
+			BeforeEach([this]
 			{
-				Native.InitializeWithExtraArgs(NativeService, ExtraString);
+				DiContainer.Bind().Instance<USimpleUService>(NewObject<USimpleUService>());
+				DiContainer.Bind().Instance<FSimpleNativeService>(MakeShared<FSimpleNativeService>());
 			});
-			TestEqual("NativeService", Native.SimpleNativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>());
+			It("should inject into free functions", [this]
+			{
+				TestEqual("Service", DiContainer.Inject().IntoFunctionByType(&DI::InjectTest::InjectDependencies), DiContainer.Resolve().TryGet<USimpleUService>());
+			});
+			It("should inject into member functions", [this]
+			{
+				FExampleNative Native = {};
+				DiContainer.Inject().IntoFunctionByType(Native, &FExampleNative::Initialize);
+				TestEqual("Native.SimpleNativeService", Native.SimpleNativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>());
+			});
+			It("should inject into uobject member functions", [this]
+			{
+				UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
+				DiContainer.Inject().IntoFunctionByType(*ExampleComponent, &UExampleComponent::InjectDependencies);
+				TestEqual("ExampleComponent->SimpleUService", ExampleComponent->SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
+			});
+
+			It("should inject into lambda functions with extra args", [this]
+			{
+				FExampleNative Native = {};
+				FString ExtraString("test");
+				DiContainer.Inject().IntoLambda([&](TSharedPtr<FSimpleNativeService> NativeService)
+				{
+					Native.InitializeWithExtraArgs(NativeService, ExtraString);
+				});
+				TestEqual("Native.SimpleNativeService", Native.SimpleNativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>());
+			});
+
+			It("should inject into uobject member functions with extra args", [this]
+			{
+				UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
+				FString ExtraString("test");
+				DiContainer.Inject()
+					.IntoLambda([&](TObjectPtr<USimpleUService> SimpleUService)
+						{
+							ExampleComponent->InjectDependenciesWithExtraArgs(SimpleUService, ExtraString);
+						}
+					);
+				TestEqual("ExampleComponent->SimpleUService", ExampleComponent->SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
+				TestEqual("ExampleComponent->ExtraString", ExampleComponent->ExtraString, ExtraString);
+			});
 		});
 
-		It( "should inject into uobject member functions with extra args", [this] {
-			UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
-			FString ExtraString("test");
-			DiContainer.Inject().IntoLambda(
-				[&](TObjectPtr<USimpleUService> SimpleUService)
-				{
-					ExampleComponent->InjectDependenciesWithExtraArgs(SimpleUService, ExtraString);
-				}
-			);
-			TestEqual("NativeService", ExampleComponent->SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
-			TestEqual("ExtraString", ExampleComponent->ExtraString, ExtraString);
+		Describe("Async", [this]
+		{
+			It("should async inject into free functions", [this]
+			{
+				DiContainer.Inject()
+					.AsyncIntoStatic(&DI::InjectTest::InjectDependencies)
+					.Next([this](TOptional<TObjectPtr<USimpleUService>> InjectedService)
+					{
+						if (TestTrue("InjectedService.IsSet()", InjectedService.IsSet()))
+						{
+							TestEqual("InjectedService", *InjectedService, DiContainer.Resolve().TryGet<USimpleUService>());
+						}
+					});
+			});
+			/*It("should async inject into member functions", [this]
+			{
+				TSharedRef<FExampleNative> Native = MakeShared<FExampleNative>();
+				DiContainer.Inject()
+					.AsyncIntoSP<FExampleNative, TSharedPtr<FSimpleNativeService>, TSharedPtr<FSimpleNativeService>>(Native, &FExampleNative::Initialize)
+					.Next([this](TOptional<TSharedPtr<FSimpleNativeService>> NativeService)
+					{
+						if (TestTrue("NativeService.IsSet()", NativeService.IsSet()))
+						{
+							TestEqual("NativeService", *NativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>());
+						}
+					});
+			});*/
+			It("should async inject into uobject member functions", [this]
+			{
+				UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
+				DiContainer.Inject()
+					.AsyncIntoUObject(*ExampleComponent, &UExampleComponent::InjectDependencies)
+					.Next([this](TOptional<TObjectPtr<USimpleUService>> SimpleUService)
+					{
+						if (TestTrue("SimpleUService.IsSet()", SimpleUService.IsSet()))
+						{
+							TestEqual("SimpleUService", *SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
+						}
+					});
+				TestEqual("NativeService", ExampleComponent->SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
+			});
 		});
 	});
 }

@@ -11,15 +11,15 @@
 #include "Contexts/DiLocalPlayerSubsystem.h"
 #include "Contexts/DiWorldSubsystem.h"
 
-TScriptInterface<IDiContextInterface> DI::TryFindDiContext(UObject* StartObject)
+TScriptInterface<const IDiContextInterface> DI::TryFindDiContext(const UObject* StartObject)
 {
 	if (!StartObject)
 		return nullptr;
 
-	if (TScriptInterface<IDiContextInterface> LocalDiContext = TryGetLocalDiContext(StartObject))
+	if (TScriptInterface<const IDiContextInterface> LocalDiContext = TryGetLocalDiContext(StartObject))
 		return LocalDiContext;
 
-	if (UActorComponent* ActorComponent = Cast<UActorComponent>(StartObject))
+	if (const UActorComponent* ActorComponent = Cast<UActorComponent>(StartObject))
 	{
 		if (AActor* OwnerActor = ActorComponent->GetOwner())
 		{
@@ -28,7 +28,7 @@ TScriptInterface<IDiContextInterface> DI::TryFindDiContext(UObject* StartObject)
 	}
 
 	
-	if (UWidget* Widget = Cast<UWidget>(StartObject))
+	if (const UWidget* Widget = Cast<UWidget>(StartObject))
 	{
 		if (Cast<UGameInstance>(Widget->GetOuter()))
 		{
@@ -44,15 +44,20 @@ TScriptInterface<IDiContextInterface> DI::TryFindDiContext(UObject* StartObject)
 	return nullptr;
 }
 
-TScriptInterface<IDiContextInterface> DI::TryGetLocalDiContext(UObject* StartObject)
+TScriptInterface<IDiContextInterface> DI::TryFindDiContext(UObject* StartObject)
+{
+	return const_cast<UObject*>(TryFindDiContext(const_cast<const UObject*>(StartObject)).GetObject());
+}
+
+TScriptInterface<const IDiContextInterface> DI::TryGetLocalDiContext(const UObject* StartObject)
 {
 	if (!StartObject)
 		return nullptr;
 
 	if (StartObject->Implements<UDiContextInterface>())
-		return TScriptInterface<IDiContextInterface>(StartObject);
+		return TScriptInterface<const IDiContextInterface>(StartObject);
 
-	if (AActor* Actor = Cast<AActor>(StartObject))
+	if (const AActor* Actor = Cast<AActor>(StartObject))
 	{
 		if (UDiContextComponent* DiContextComponent = Actor->FindComponentByClass<UDiContextComponent>())
 		{
@@ -62,23 +67,28 @@ TScriptInterface<IDiContextInterface> DI::TryGetLocalDiContext(UObject* StartObj
 
 	if (GetDefault<UTentacleSettings>()->bEnableScopeSubsystems)
 	{
-		if (UWorld* World = Cast<UWorld>(StartObject))
+		if (const UWorld* World = Cast<UWorld>(StartObject))
 		{
 			return World->GetSubsystem<UDiWorldSubsystem>();
 		}
-		if (UGameInstance* GameInstance = Cast<UGameInstance>(StartObject))
+		if (const UGameInstance* GameInstance = Cast<UGameInstance>(StartObject))
 		{
 			return GameInstance->GetSubsystem<UDiGameInstanceSubsystem>();
 		}
-		if (UEngine* Engine = Cast<UEngine>(StartObject))
+		if (const UEngine* Engine = Cast<UEngine>(StartObject))
 		{
 			return Engine->GetEngineSubsystem<UDiEngineSubsystem>();
 		}
-		if (ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(StartObject))
+		if (const ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(StartObject))
 		{
 			return LocalPlayer->GetSubsystem<UDiLocalPlayerSubsystem>();
 		}
 	}
 
 	return nullptr;
+}
+
+TScriptInterface<IDiContextInterface> DI::TryGetLocalDiContext(UObject* StartObject)
+{
+	return const_cast<UObject*>(TryGetLocalDiContext(const_cast<const UObject*>(StartObject)).GetObject());
 }

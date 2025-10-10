@@ -22,7 +22,7 @@ public:
 	virtual void AutoInject_Implementation(const TScriptInterface<IDiContextInterface>& DiContext) override;
 	// --
 
-	void InjectDependencies(TObjectPtr<USimpleUService> SimpleUService);
+	TObjectPtr<USimpleUService> InjectDependencies(TObjectPtr<USimpleUService> SimpleUService);
 	void InjectDependenciesWithExtraArgs(TObjectPtr<USimpleUService> InSimpleUService, FString ExtraString);
 
 	UPROPERTY()
