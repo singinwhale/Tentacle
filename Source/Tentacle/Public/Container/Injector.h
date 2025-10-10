@@ -275,7 +275,7 @@ namespace DI
 		TAfterAsyncInject<TRetVal, TDiContainer>
 		AsyncIntoSP(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			return this->template AsyncIntoSP<T, TRetVal, TArgs...>(Instance, MemberFunction, ErrorBehavior, (TVoid<TArgs>(), NAME_None)...);
+			return this->template AsyncIntoSPNamed<T, TRetVal, TArgs...>(Instance, MemberFunction, ErrorBehavior, (TVoid<TArgs>(), NAME_None)...);
 		}
 
 		/** Version for free functions  */
@@ -319,15 +319,15 @@ namespace DI
 		/** Version for native types referenced via SharedPtr */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
 		TAfterAsyncInject<TRetVal, TDiContainer>
-		AsyncIntoSP(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
+		AsyncIntoSPNamed(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
-			return TAfterAsyncInject<TRetVal, TDiContainer>(DiContainer, this->template AsyncIntoSPInternal<T, TRetVal, TArgs..., TNames...>(Instance, MemberFunction, ErrorBehavior, BindingNames...));
+			return TAfterAsyncInject<TRetVal, TDiContainer>(DiContainer, this->template AsyncIntoSPInternal<T, TRetVal, TArgs...>(Instance, MemberFunction, ErrorBehavior, BindingNames...));
 		}
 		template <class T, class TRetVal, class... TArgs, class... TNames>
 		TAfterAsyncInject<TRetVal, TDiContainer>
-		AsyncIntoSP(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames... BindingNames) const
+		AsyncIntoSPNamed(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames... BindingNames) const
 		{
-			return this->template AsyncIntoSP<T, TRetVal, TArgs..., TNames...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, BindingNames...);
+			return this->template AsyncIntoSPNamed<T, TRetVal, TArgs...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, BindingNames...);
 		}
 		//-------------------------------
 		/** Version for free functions */

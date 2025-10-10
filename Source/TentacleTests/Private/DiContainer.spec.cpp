@@ -335,7 +335,7 @@ void DiContainerSpec::Define()
 						}
 					});
 			});
-			/*It("should async inject into member functions", [this]
+			It("should async inject into member functions", [this]
 			{
 				TSharedRef<FExampleNative> Native = MakeShared<FExampleNative>();
 				DiContainer.Inject()
@@ -347,7 +347,7 @@ void DiContainerSpec::Define()
 							TestEqual("NativeService", *NativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>());
 						}
 					});
-			});*/
+			});
 			It("should async inject into uobject member functions", [this]
 			{
 				UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
