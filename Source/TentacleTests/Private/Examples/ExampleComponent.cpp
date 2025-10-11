@@ -19,7 +19,7 @@ void UExampleComponent::AutoInject_Implementation(const TScriptInterface<IDiCont
 	         .ThenBindInstance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
 
 	DiContext->DiResolve().WaitForMany<USimpleUService, UExampleComponent>()
-	         .ExpandNext([this, DiContainer = DiContext->GetDiContainer().AsShared()](TOptional<TObjectPtr<USimpleUService>> Service, TOptional<TObjectPtr<UExampleComponent>>)
+	         .AndThenExpand([this, DiContainer = DiContext->GetDiContainer().AsShared()](TOptional<TObjectPtr<USimpleUService>> Service, TOptional<TObjectPtr<UExampleComponent>>)
 	         {
 		         this->InjectDependencies(*Service);
 		         DiContainer->Bind().Instance<UExampleComponent>(this, DI::EBindConflictBehavior::AssertCheck);
@@ -38,6 +38,12 @@ void UExampleComponent::InjectDependenciesWithExtraArgs(TObjectPtr<USimpleUServi
 {
 	SimpleUService = InSimpleUService;
 	ExtraString = InExtraString;
+}
+
+TTuple<TObjectPtr<USimpleUService>, TScriptInterface<ISimpleInterface>, TSharedRef<FSimpleNativeService>, const FSimpleUStructService*> UExampleComponent::ComplexInjectDependencies(
+	TObjectPtr<USimpleUService> InSimpleUService, TScriptInterface<ISimpleInterface> InterfaceService, TSharedRef<FSimpleNativeService> SimpleNativeService, const FSimpleUStructService& SimpleStruct)
+{
+	return MakeTuple(InSimpleUService, InterfaceService, SimpleNativeService, &SimpleStruct);
 }
 
 void UExampleComponent::BeginPlay()

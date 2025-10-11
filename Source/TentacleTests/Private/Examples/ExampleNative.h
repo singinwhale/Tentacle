@@ -1,12 +1,14 @@
 ﻿#pragma once
 
+struct FSimpleUStructService;
 class FSimpleNativeService;
 
 class TENTACLETESTS_API FExampleNative
 {
 public:
-	TSharedPtr<FSimpleNativeService> Initialize(TSharedPtr<FSimpleNativeService> SimpleNative);
-	TSharedPtr<FSimpleNativeService> InitializeWithExtraArgs(TSharedPtr<FSimpleNativeService> SimpleNative, FString InExtraString);
+	TSharedRef<FSimpleNativeService> Initialize(TSharedRef<FSimpleNativeService> SimpleNative);
+	TSharedRef<FSimpleNativeService> InitializeWithExtraArgs(TSharedRef<FSimpleNativeService> SimpleNative, FString InExtraString);
+	const FSimpleUStructService& InitializeWithUStruct(const FSimpleUStructService& SimpleNative);
 
 	TSharedPtr<FSimpleNativeService> SimpleNativeService;
 	FString ExtraString;

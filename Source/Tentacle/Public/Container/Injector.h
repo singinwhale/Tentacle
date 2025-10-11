@@ -6,6 +6,7 @@
 #include "ResolveErrorBehavior.h"
 #include "TentacleTemplates.h"
 #include "WeakFuture.h"
+#include "OptionalVoid.h"
 
 namespace DI
 {
@@ -101,11 +102,10 @@ namespace DI
 		 * @return whatever the passed function returns.
 		 */
 		template <class T, class TRetVal, class... TArgs>
-		TRetVal IntoFunctionByType(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
+		TOptional<TRetVal> IntoFunctionByType(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentTypes<TArgs...>(ErrorBehavior);
-
-			return ResolvedTypes.ApplyAfter(MemberFunction, Instance);
+			auto MaybeResolvedTypes = this->template TryGetFromArgumentTypes<TArgs...>(ErrorBehavior);
+			return TryApplyOptionalTuple(MemberFunction, MaybeResolvedTypes, Instance);
 		}
 
 		/**
@@ -122,10 +122,10 @@ namespace DI
 		 * @return whatever the passed function returns.
 		 */
 		template <class TRetVal, class... TArgs>
-		TRetVal IntoFunctionByType(TRetVal (*FreeFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
+		TOptional<TRetVal> IntoFunctionByType(TRetVal (*FreeFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentTypes<TArgs...>(ErrorBehavior);
-			return ResolvedTypes.ApplyAfter(FreeFunction);
+			auto MaybeResolvedTypes = this->template TryGetFromArgumentTypes<TArgs...>(ErrorBehavior);
+			return TryApplyOptionalTuple(*FreeFunction, MaybeResolvedTypes);
 		}
 
 		/**
@@ -146,8 +146,8 @@ namespace DI
 		template <class TCallable>
 		auto IntoLambda(TCallable&& Callable, EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentTypesTuple<typename FunctionTraits::TFunctionTraits<TCallable>::ArgsTuple>(ErrorBehavior);
-			return ResolvedTypes.ApplyAfter(Callable);
+			auto MaybeResolvedTypes = this->template ResolveFromArgumentTypesTuple<typename FunctionTraits::TFunctionTraits<TCallable>::ArgsTuple>(ErrorBehavior);
+			return TryApplyOptionalTuple(MoveTemp(Callable), MaybeResolvedTypes);
 		}
 
 		/**
@@ -168,8 +168,8 @@ namespace DI
 		template <class TCallable, class... TNames>
 		auto IntoLambdaWithNames(TCallable&& Callable, EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentTypesTupleNamed<typename FunctionTraits::TFunctionTraits<TCallable>::ArgsTuple>(ErrorBehavior, BindingNames...);
-			return ResolvedTypes.ApplyAfter(Callable);
+			auto MaybeResolvedTypes = this->template ResolveFromArgumentTypesTupleNamed<typename FunctionTraits::TFunctionTraits<TCallable>::ArgsTuple>(ErrorBehavior, BindingNames...);
+			return TryApplyOptionalTuple(MoveTemp(Callable), MaybeResolvedTypes);
 		}
 
 		/** Version without explicit ErrorBehavior */
@@ -194,15 +194,18 @@ namespace DI
 		 * @return whatever the passed function returns.
 		 */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		TRetVal IntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
+		TOptional<TRetVal> IntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentNames<TArgs...>(ErrorBehavior, Forward<TNames>(BindingNames)...);
+			auto ResolvedTypes = this->template TryGetFromArgumentsNamed<TArgs...>(ErrorBehavior, Forward<TNames>(BindingNames)...);
+
+			
+			
 			return ResolvedTypes.ApplyAfter(MemberFunction, &Instance);
 		}
 
 		/** Version without explicit ErrorBehavior */
 		template <class T, class TRetVal, class... TArgs, class... TNames>
-		TRetVal IntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames&&... BindingNames) const
+		TOptional<TRetVal> IntoFunctionWithNames(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), TNames&&... BindingNames) const
 		{
 			return this->template IntoFunctionWithNames<T, TRetVal, TArgs...>(Instance, MemberFunction, GDefaultResolveErrorBehavior, Forward<TNames>(BindingNames)...);
 		}
@@ -223,15 +226,15 @@ namespace DI
 		 * @return whatever the passed function returns.
 		 */
 		template <class TRetVal, class... TArgs, class... TNames>
-		TRetVal IntoFunctionWithNames(TRetVal (*FreeFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
+		TOptional<TRetVal> IntoFunctionWithNames(TRetVal (*FreeFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
 		{
-			auto ResolvedTypes = this->template ResolveFromArgumentNames<TArgs...>(ErrorBehavior, Forward<TNames>(BindingNames)...);
+			auto ResolvedTypes = this->template TryGetFromArgumentsNamed<TArgs...>(ErrorBehavior, Forward<TNames>(BindingNames)...);
 			return ResolvedTypes.ApplyAfter(FreeFunction);
 		}
 
 		/** Version without explicit ErrorBehavior */
 		template <class TRetVal, class... TArgs, class... TNames>
-		TRetVal IntoFunctionWithNames(TRetVal (*FreeFunction)(TArgs...), TNames&&... BindingNames) const
+		TOptional<TRetVal> IntoFunctionWithNames(TRetVal (*FreeFunction)(TArgs...), TNames&&... BindingNames) const
 		{
 			return this->template IntoFunctionWithNames<TRetVal, TArgs...>(FreeFunction, GDefaultResolveErrorBehavior, Forward<TNames>(BindingNames)...);
 		}
@@ -350,22 +353,27 @@ namespace DI
 		TWeakFuture<TRetVal>
 		AsyncIntoUObjectInternal(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
 		{
-			auto [OutPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
+			auto [RetValPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
+			static_assert((std::convertible_to<TBindingInstRef<typename TBindingInstBaseType<TArgs>::Type>, TArgs> && ...));
 			this->DiContainer
 				.Resolve()
-				.template WaitForManyNamed<typename TBindingInstPtrBaseType<TArgs>::Type...>(&Instance, ErrorBehavior, BindingNames...)
-				.ExpandNext([WeakInstance = MakeWeakObjectPtr(&Instance), MemberFunction, OutPromise](TOptional<TArgs>... OptionalResolvedTypes) mutable
+				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(&Instance, ErrorBehavior, BindingNames...)
+				.AndThenExpand([WeakInstance = MakeWeakObjectPtr(&Instance), MemberFunction, RetValPromise](TArgs... ResolvedBindings) mutable
 				{
 					T* ValidInstance = WeakInstance.Get();
-					const bool bAllIsResolved = (OptionalResolvedTypes.IsSet() && ...);
-					if (ValidInstance && bAllIsResolved)
+					const bool bAllIsResolvedAndValid = (TIsBindingPtrValid<TArgs>::Check(ResolvedBindings) && ... && true);
+					if (ValidInstance && bAllIsResolvedAndValid)
 					{
-						OutPromise.EmplaceValue((*ValidInstance.*MemberFunction)(OptionalResolvedTypes.GetValue()...));
+						RetValPromise.EmplaceValue((*ValidInstance.*MemberFunction)(MoveTempIfPossible(ResolvedBindings)...));
 					}
 					else
 					{
-						OutPromise.Cancel();
+						RetValPromise.Cancel();
 					}
+				})
+				.OrElse([RetValPromise]() mutable 
+				{
+					RetValPromise.Cancel();
 				});
 			return MoveTemp(OutFuture);
 		}
@@ -378,14 +386,14 @@ namespace DI
 			auto [OutPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
 			this->DiContainer
 				.Resolve()
-				.template WaitForManyNamed<typename TBindingInstPtrBaseType<TArgs>::Type...>(nullptr, ErrorBehavior, BindingNames...)
-				.ExpandNext([WeakInstance = Instance.ToWeakPtr(), MemberFunction, OutPromise](TOptional<TArgs>... OptionalResolvedTypes) mutable
+				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(nullptr, ErrorBehavior, BindingNames...)
+				.AndThenExpand([WeakInstance = Instance.ToWeakPtr(), MemberFunction, OutPromise](TArgs... ResolvedTypes) mutable
 				{
-					const bool bAllIsResolved = (OptionalResolvedTypes.IsSet() && ...);
+					const bool bAllIsResolvedAndValid = (TIsBindingPtrValid<TArgs>::Check(ResolvedTypes) && ... && true);
 					TSharedPtr<T> ValidInstance = WeakInstance.Pin();
-					if (ValidInstance && bAllIsResolved)
+					if (ValidInstance && bAllIsResolvedAndValid)
 					{
-						OutPromise.EmplaceValue(((*ValidInstance).*MemberFunction)(OptionalResolvedTypes.GetValue()...));
+						OutPromise.EmplaceValue(((*ValidInstance).*MemberFunction)(MoveTempIfPossible(ResolvedTypes)...));
 					}
 					else
 					{
@@ -403,13 +411,13 @@ namespace DI
 			auto [OutPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
 			this->DiContainer
 				.Resolve()
-				.template WaitForManyNamed<typename TBindingInstPtrBaseType<TArgs>::Type...>(nullptr, ErrorBehavior, BindingNames...)
-				.ExpandNext([FreeFunction, OutPromise](TOptional<TArgs>... OptionalResolvedTypes) mutable
+				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(nullptr, ErrorBehavior, BindingNames...)
+				.AndThenExpand([FreeFunction, OutPromise](TArgs... ResolvedTypes) mutable
 				{
-					const bool bAllIsResolved = (OptionalResolvedTypes.IsSet() && ...);
-					if (bAllIsResolved)
+					const bool bAllIsResolvedAndValid = (TIsBindingPtrValid<TArgs>::Check(ResolvedTypes) && ... && true);
+					if (bAllIsResolvedAndValid)
 					{
-						OutPromise.EmplaceValue((*FreeFunction)(OptionalResolvedTypes.GetValue()...));
+						OutPromise.EmplaceValue((*FreeFunction)(MoveTempIfPossible(ResolvedTypes)...));
 					}
 					else
 					{
@@ -420,9 +428,9 @@ namespace DI
 		}
 
 		template <class... TArgumentTypes>
-		auto ResolveFromArgumentTypes(EResolveErrorBehavior ErrorBehavior) const
+		auto TryGetFromArgumentTypes(EResolveErrorBehavior ErrorBehavior) const
 		{
-			return MakeTuple(this->ResolveFromArgumentType<TArgumentTypes>(ErrorBehavior)...);
+			return this->template TryGetFromArgumentsNamed<TArgumentTypes...>(ErrorBehavior, (TVoid<TArgumentTypes>(), NAME_None)...);
 		}
 
 		template <class TTupleWithArgsType>
@@ -433,14 +441,14 @@ namespace DI
 		template <class... TTupleWithArgsTypes>
 		struct TResolveTuple<TTuple<TTupleWithArgsTypes...>>
 		{
-			static TTuple<TTupleWithArgsTypes...> Resolve(const TInjector& Injector, EResolveErrorBehavior ErrorBehavior)
+			static TOptional<TTuple<TTupleWithArgsTypes...>> Resolve(const TInjector& Injector, EResolveErrorBehavior ErrorBehavior)
 			{
-				return Injector.ResolveFromArgumentTypes<TTupleWithArgsTypes...>(ErrorBehavior);
+				return Injector.TryGetFromArgumentTypes<TTupleWithArgsTypes...>(ErrorBehavior);
 			}
 
-			static TTuple<TTupleWithArgsTypes...> ResolveNamed(const TInjector& Injector, EResolveErrorBehavior ErrorBehavior, FName BindingNames...)
+			static TOptional<TTuple<TTupleWithArgsTypes...>> ResolveNamed(const TInjector& Injector, EResolveErrorBehavior ErrorBehavior, FName BindingNames...)
 			{
-				return Injector.ResolveFromArgumentNames<TTupleWithArgsTypes...>(ErrorBehavior, BindingNames);
+				return Injector.TryGetFromArgumentsNamed<TTupleWithArgsTypes...>(ErrorBehavior, BindingNames);
 			}
 		};
 
@@ -456,18 +464,30 @@ namespace DI
 			return TResolveTuple<TTupleWithArgsType>::ResolveNamed(*this, ErrorBehavior, BindingNames...);
 		}
 
-		template <class TArgumentType>
-		auto ResolveFromArgumentType(EResolveErrorBehavior ErrorBehavior) const
+		template <class... TArgumentTypes, class... TNames>
+		auto TryGetFromArgumentsNamed(EResolveErrorBehavior ErrorBehavior, TNames... Names) const
 		{
-			static_assert(CHasType<TBindingInstPtrBaseType<TArgumentType>>,
-			              "The Argument Type cannot be used for dependency injection. If you cannot change it, resolve each argument individually and call the function manually.");
-			return this->DiContainer.Resolve().template TryGet<typename TBindingInstPtrBaseType<TArgumentType>::Type>(ErrorBehavior);
+			auto ResolvedPointers = MakeTuple(DiContainer.Resolve().template TryGetNamed<typename TBindingInstBaseType<TArgumentTypes>::Type>(Names, ErrorBehavior)...);
+			return TryDerefAllInstances(ResolvedPointers);
 		}
 
-		template <class... TArgumentTypes, class... TNames>
-		auto ResolveFromArgumentNames(EResolveErrorBehavior ErrorBehavior, TNames... Names) const
+		template<class TCallable, class TOptionalTuple, class... TExtraArgs>
+		static auto TryApplyOptionalTuple(TCallable Callable, TOptionalTuple OptionalTuple, TExtraArgs&&... ExtraArgs) // -> TOptional<TRetVal>
 		{
-			return MakeTuple(DiContainer.Resolve().template TryGetNamed<typename TBindingInstRefBaseType<TArgumentTypes>::Type>(Names, ErrorBehavior)...);
+			using TRetVal = typename FunctionTraits::TFunctionTraits<TCallable>::ResultType;
+			if (OptionalTuple.IsSet())
+			{
+				if constexpr (!std::is_same_v<TRetVal, void>)
+				{
+					return TOptional<TRetVal>(OptionalTuple->ApplyAfter(MoveTemp(Callable), MoveTemp(ExtraArgs)...));
+				}
+				else if constexpr (std::is_same_v<TRetVal, void>)
+				{
+					OptionalTuple->ApplyAfter(MoveTemp(Callable), MoveTemp(ExtraArgs)...);
+					return TOptional<TRetVal>(true);
+				}
+			}
+			return TOptional<TRetVal>();
 		}
 
 		TDiContainer& DiContainer;

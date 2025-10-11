@@ -14,6 +14,7 @@
 #include "Misc/ScopeLock.h"
 #include "FunctionTraits.h"
 #include "OptionalRef.h"
+#include "OptionalVoid.h"
 
 /**
  * Base class for the internal state of asynchronous return values (futures).
@@ -376,7 +377,7 @@ protected:
 	}
 
 	/**
-	 * Set a completion callback that will be called once the future completes
+	 * Set a completion callback that will be called once the future completes (success or cancel)
 	 *	or immediately if already completed
 	 *
 	 * @param Continuation a continuation taking an argument of type TWeakFuture<InternalResultType>
@@ -387,24 +388,28 @@ protected:
 
 	/**
 	 * Set a completion callback that will be called once the future completes *successfully*
-	 *	or immediately if already completed *successfully*
+	 *	or immediately if already completed *successfully*.
+	 *	
+	 * If the future is canceled the continuation will *never* be called. The returned future will still be canceled however, which you can react to using OrElse.
 	 *
 	 * @param Continuation a continuation taking an argument of type TWeakFuture<InternalResultType>
 	 * @return A future containing the return value of the continuation if successful. The returned future is canceled if this future is canceled.
 	 */
 	template <typename Func>
-	auto IfSuccessful(Func Continuation);
+	auto AndThen(Func Continuation);
 
 	/**
 	 * Set a completion callback that will be called once the future is canceled
 	 *	or immediately if already canceled.
+	 *	
+	 * If the future succeeds the continuation will *never* be called. The hereby returned future will still be canceled however, which you can react to using OrElse.
 	 * This acts like a negation on the future. A canceled future will be turned into a successful future while a successful future will be turned into a canceled future.
 	 *
 	 * @param Continuation a continuation taking no arguments
 	 * @return A future containing the return value of the continuation if the future is canceled. The returned future will be canceled if this future is successful.
 	 */
 	template <typename Func>
-	auto IfCanceled(Func Continuation);
+	auto OrElse(Func Continuation);
 
 	/**
 	 * Convenience wrapper for Then that
@@ -523,23 +528,11 @@ public:
 		return TWeakSharedFuture<ResultType>(MoveTemp(*this));
 	}
 
-	/**
-	 * Expose Then functionality
-	 * @see TWeakFutureBase
-	 */
 	using BaseType::Then;
-
-	/**
-	 * Expose Next functionality
-	 * @see TWeakFutureBase
-	 */
 	using BaseType::Next;
-
-	/**
-	 * Expose Reset functionality
-	 * @see TWeakFutureBase
-	 */
 	using BaseType::Reset;
+	using BaseType::AndThen;
+	using BaseType::OrElse;
 };
 
 
@@ -625,24 +618,12 @@ public:
 	{
 		return TWeakSharedFuture<ResultType&>(MoveTemp(*this));
 	}
-
-	/**
-	 * Expose Then functionality
-	 * @see TWeakFutureBase
-	 */
+	
 	using BaseType::Then;
-
-	/**
-	 * Expose Next functionality
-	 * @see TWeakFutureBase
-	 */
 	using BaseType::Next;
-
-	/**
-	 * Expose Reset functionality
-	 * @see TWeakFutureBase
-	 */
 	using BaseType::Reset;
+	using BaseType::AndThen;
+	using BaseType::OrElse;
 };
 
 
@@ -692,23 +673,47 @@ public:
 	 */
 	TWeakSharedFuture<void> Share();
 
-	/**
-	 * Expose Then functionality
-	 * @see TWeakFutureBase
-	 */
 	using BaseType::Then;
-
-	/**
-	 * Expose Next functionality
-	 * @see TWeakFutureBase
-	 */
 	using BaseType::Next;
+	using BaseType::Reset;
+	using BaseType::AndThen;
+	using BaseType::OrElse;
+};
+
+/**
+ * A future that carries multiple values.
+ */
+template <typename... ResultTypes>
+class TWeakFutureValues
+	: public TWeakFuture<TTuple<ResultTypes...>>
+{
+	typedef TWeakFuture<TTuple<ResultTypes...>> Super;
+
+public:
+	TWeakFutureValues(TWeakFuture<TTuple<ResultTypes...>>&& WeakFuture)
+		: Super(MoveTemp(WeakFuture))
+	{
+	}
+
 
 	/**
-	 * Expose Reset functionality
+	 * Retrieves the values simultaneously.
+	 * The Continuation will not be called ever if the future is canceled!
+	 * The hereby returned future will still be canceled however, which you can react to using OrElse to handle this case.
+	 * @code
+		TWeakFutureSet<TypeA, TypeB> FutureValues = SomeAsyncCall();
+		FutureValues.AndThenApply([](TypeA A, TypeB B) {
+			// do something
+		})
+		.OrElse([](){
+			// cleanup
+		});
+	 * @endcode 
 	 * @see TWeakFutureBase
 	 */
-	using BaseType::Reset;
+	template <typename Func>
+	auto AndThenApply(Func Continuation) //-> TWeakFuture<decltype(Continuation(Consume()))>
+	;
 };
 
 /**
@@ -717,38 +722,31 @@ public:
  */
 template <typename... ResultTypes>
 class TWeakFutureSet
-	: public TWeakFuture<TTuple<ResultTypes...>>
+	: public TWeakFutureValues<TOptional<ResultTypes>...>
 {
-	typedef TWeakFuture<TTuple<ResultTypes...>> Super;
+	typedef TWeakFutureValues<TOptional<ResultTypes>...> Super;
 
 public:
-	TWeakFutureSet(TWeakFuture<TTuple<ResultTypes...>>&& WeakFuture)
-		: Super(MoveTemp(WeakFuture))
+	TWeakFutureSet(TWeakFuture<TTuple<TOptional<ResultTypes>...>>&& FutureWeakFutures)
+		: Super(MoveTemp(FutureWeakFutures))
 	{
 	}
 
 	/**
-	 * Expose Next functionality
+	 * Retrieves the futures simultaneously as TResultType values.
+	 * The Continuation will not be called ever if not all futures succeed!
+	 * The returned future will still be canceled however, which you can react to using OrElse.
+	 * @code
+		TWeakFutureSet<TypeA, TypeB> FutureValues = SomeAsyncCall();
+		FutureValues.AndThenExpand([](TypeA A, TypeB B) {
+			// do something
+		})
+	 * @endcode 
 	 * @see TWeakFutureBase
 	 */
-	// Next implementation
 	template <typename Func>
-	auto ExpandNext(Func Continuation) //-> TWeakFuture<decltype(Continuation(Consume()))>
-	{
-		return this->Then(
-			[Continuation = MoveTemp(Continuation)](TWeakFuture<TTuple<ResultTypes...>> Self) mutable
-			{
-				if (Self.WasCanceled())
-				{
-					return TTuple<ResultTypes...>().ApplyBefore(Continuation);
-				}
-				else
-				{
-					return Self.Consume()->ApplyBefore(Continuation);
-				}
-			}
-		);
-	}
+	auto AndThenExpand(Func Continuation) //-> TWeakFuture<ContinuationReturnValue>
+	;
 };
 
 /* TWeakSharedFuture
@@ -1412,9 +1410,9 @@ private:
 
 template <class... ResultTypes>
 class TWeakPromiseSet
-	: public TWeakPromise<TTuple<ResultTypes...>>
+	: public TWeakPromise<TTuple<TOptional<ResultTypes>...>>
 {
-	using BaseType = TWeakPromise<TTuple<ResultTypes...>>;
+	using BaseType = TWeakPromise<TTuple<TOptional<ResultTypes>...>>;
 
 public:
 	TWeakFutureSet<ResultTypes...> GetWeakFutureSet()
@@ -1465,6 +1463,52 @@ namespace FutureDetail
 		Function(MoveTemp(Param));
 		Promise.SetValue();
 	}
+
+	template<class TContinuation, class TContinuationReturnType, class ...TContinuationArgs>
+	void SetPromiseValueFromContinuationResult(TWeakPromise<TContinuationReturnType>& Promise, TContinuation&& Continuation, TContinuationArgs... ContinuationArgs)
+	{
+		if constexpr (sizeof...(ContinuationArgs) == 0 && std::is_same_v<TContinuationReturnType, void>)
+		{
+			Continuation();
+			Promise.SetValue();
+		}
+		else if constexpr (sizeof...(ContinuationArgs) == 0)
+		{
+			Promise.SetValue(Continuation());
+		}
+		else if constexpr (std::is_same_v<TContinuationReturnType, void>)
+		{
+			Continuation(MoveTempIfPossible(ContinuationArgs)...);
+			Promise.SetValue();
+		}
+		else
+		{
+			Promise.SetValue(Continuation(MoveTempIfPossible(ContinuationArgs)...));
+		}
+	}
+
+	template<class TContinuation, class TResultType, class ...TTupleTypes>
+	void SetPromiseValueFromContinuationApplyResult(TWeakPromise<TResultType>& Promise, TContinuation&& Continuation, TTuple<TTupleTypes...>&& Tuple)
+	{
+		if constexpr (sizeof...(TTupleTypes) == 0 && std::is_same_v<TResultType, void>)
+		{
+			Continuation();
+			Promise.SetValue();
+		}
+		else if constexpr (sizeof...(TTupleTypes) == 0)
+		{
+			Promise.SetValue(Continuation());
+		}
+		else if constexpr (std::is_same_v<TResultType, void>)
+		{
+			MoveTemp(Tuple).ApplyAfter(Continuation);
+			Promise.SetValue();
+		}
+		else
+		{
+			Promise.SetValue(MoveTemp(Tuple).ApplyAfter(Continuation));
+		}
+	}
 }
 
 // Then implementation
@@ -1498,13 +1542,13 @@ auto TWeakFutureBase<InternalResultType>::Then(Func Continuation) //-> TWeakFutu
 
 template <typename InternalResultType>
 template <typename Func>
-auto TWeakFutureBase<InternalResultType>::IfSuccessful(Func Continuation) //-> TWeakFuture<decltype(Continuation(MoveTemp(TWeakFuture<InternalResultType>())))>
+auto TWeakFutureBase<InternalResultType>::AndThen(Func Continuation) //-> TWeakFuture<decltype(Continuation(MoveTemp(TWeakFuture<InternalResultType>())))>
 {
 	check(IsValid());
-	using ReturnValue = typename FunctionTraits::TFunctionTraits<Func>::ResultType;
+	using FContinuationReturnType = typename FunctionTraits::TFunctionTraits<Func>::ResultType;
 
-	TWeakPromise<ReturnValue> Promise;
-	TWeakFuture<ReturnValue> FutureResult = Promise.GetWeakFuture();
+	TWeakPromise<FContinuationReturnType> Promise;
+	TWeakFuture<FContinuationReturnType> FutureResult = Promise.GetWeakFuture();
 	TUniqueFunction<void()> Callback = [PromiseCapture = MoveTemp(Promise), ContinuationCapture = MoveTemp(Continuation), StateCapture = this->State]() mutable
 	{
 		if (StateCapture->WasCanceled())
@@ -1513,17 +1557,14 @@ auto TWeakFutureBase<InternalResultType>::IfSuccessful(Func Continuation) //-> T
 		}
 		else
 		{
-			FutureDetail::SetWeakPromiseValue(PromiseCapture, [ContinuationCapture](TWeakFuture<InternalResultType> Self)
+			if constexpr (std::is_same_v<InternalResultType, void>)
 			{
-				if constexpr (std::is_same_v<ReturnValue, void>)
-				{
-					ContinuationCapture();
-				}
-				else
-				{
-					ContinuationCapture(Self.Consume());
-				}
-			}, TWeakFuture<InternalResultType>(MoveTemp(StateCapture)));
+				FutureDetail::SetPromiseValueFromContinuationResult(PromiseCapture, ContinuationCapture);
+			}
+			else
+			{
+				FutureDetail::SetPromiseValueFromContinuationResult(PromiseCapture, ContinuationCapture, MoveTemp(*StateCapture->GetResult()));
+			}
 		}
 	};
 
@@ -1535,7 +1576,7 @@ auto TWeakFutureBase<InternalResultType>::IfSuccessful(Func Continuation) //-> T
 
 template <typename InternalResultType>
 template <typename Func>
-auto TWeakFutureBase<InternalResultType>::IfCanceled(Func Continuation) //-> TWeakFuture<decltype(Continuation(MoveTemp(TWeakFuture<InternalResultType>())))>
+auto TWeakFutureBase<InternalResultType>::OrElse(Func Continuation) //-> TWeakFuture<decltype(Continuation(MoveTemp(TWeakFuture<InternalResultType>())))>
 {
 	check(IsValid());
 	using ReturnValue = typename FunctionTraits::TFunctionTraits<Func>::ResultType;
@@ -1669,14 +1710,14 @@ namespace AwaitAllWeakPrivate
  * Once all futures have returned or have been canceled the future will complete.
  */
 template <class... ValTypes>
-TWeakFutureSet<TOptional<ValTypes>...> AwaitAllWeak(TTuple<TWeakFuture<ValTypes>...> Futures)
+TWeakFutureSet<ValTypes...> AwaitAllInTuple(TTuple<TWeakFuture<ValTypes>...> Futures)
 {
 	// We have to buffer the future values as they trickle in. Ideally we would do this inside the future state but we do not have time for that right now.
 	// In the meantime, we will have to live with this extra allocation.
 	// We use nested optionals to differentiate between futures that are still pending and ones that finished unsuccessfully.
 	TSharedRef<TTuple<TOptional<TOptional<ValTypes>>...>> BufferState = MakeShared<TTuple<TOptional<TOptional<ValTypes>>...>>();
-	TWeakPromiseSet<TOptional<ValTypes>...> Promise = {};
-	TWeakFutureSet<TOptional<ValTypes>...> FutureSet = Promise.GetWeakFutureSet();
+	TWeakPromiseSet<ValTypes...> Promise = {};
+	TWeakFutureSet<ValTypes...> FutureSet = Promise.GetWeakFutureSet();
 	auto TupleValidFunc = AwaitAllWeakPrivate::MakeTupleValidFunction(BufferState, TMakeIntegerSequence<int32, sizeof...(ValTypes)>());
 
 	auto PromiseFulfillableFunc = [Promise = MoveTemp(Promise), TupleValidFunc](TSharedRef<TTuple<TOptional<TOptional<ValTypes>>...>> BufferState) mutable
@@ -1699,14 +1740,14 @@ TWeakFutureSet<TOptional<ValTypes>...> AwaitAllWeak(TTuple<TWeakFuture<ValTypes>
 /**
  * Await a tuple of futures.
  * This is very helpful for template magic involving variadic functions.
- * Each weak future will be resolved its value or its default value if the future has been canceled.
+ * Each weak future will be resolved to its value or its default value if the future has been canceled.
  * Once all futures have returned or have been dropped the future will complete.
  */
 template <class... ValTypes>
-TWeakFutureSet<ValTypes...> AwaitAllWeakOrDefault(TTuple<TWeakFuture<ValTypes>...> Futures)
+TWeakFutureValues<ValTypes...> AwaitAllInTupleOrDefault(TTuple<TWeakFuture<ValTypes>...> Futures)
 {
 	TWeakFuture<TTuple<ValTypes...>> ValueOrDefaultFuture =
-		AwaitAllWeak(MoveTemp(Futures))
+		AwaitAllInTuple(MoveTemp(Futures))
 		.Next([](TOptional<TTuple<TOptional<ValTypes>...>> Values) -> TTuple<ValTypes...>
 		{
 			if (!Values.IsSet())
@@ -1722,4 +1763,88 @@ TWeakFutureSet<ValTypes...> AwaitAllWeakOrDefault(TTuple<TWeakFuture<ValTypes>..
 			});
 		});
 	return TWeakFutureSet<ValTypes...>(MoveTemp(ValueOrDefaultFuture));
+}
+
+/**
+ * Await multiple futures.
+ * This is very helpful for template magic involving variadic functions.
+ * Each weak future will be resolved to an optional value type.
+ * If the optional is unset this means that the corresponding future has been canceled.
+ * Once all futures have returned or have been canceled the future will complete.
+ * @see AwaitAllInTuple
+ * @see AwaitAllInTupleOrDefault
+ */
+template <class... ValTypes>
+TWeakFutureSet<ValTypes...> AwaitAllWeak(TWeakFuture<ValTypes>... Futures)
+{
+	return AwaitAllInTuple(MakeTuple(MoveTemp(Futures)...));
+}
+
+
+template <typename ... ResultTypes>
+template <typename Func>
+auto TWeakFutureValues<ResultTypes...>::AndThenApply(Func Continuation)
+{
+	using FContinuationTraits = FunctionTraits::TFunctionTraits<Func>;
+	using FContinuationReturnType = FContinuationTraits::ResultType;
+	auto [Promise, Future] = MakeWeakPromisePair<FContinuationReturnType>();
+	this->Then(
+		[Continuation = MoveTemp(Continuation), Promise=MoveTemp(Promise)](TWeakFuture<TTuple<ResultTypes...>> Self) mutable
+		{
+			if (!Self.WasCanceled())
+			{
+				FutureDetail::SetPromiseValueFromContinuationApplyResult(Promise, Continuation, MoveTempIfPossible(*Self.Consume()));
+			}
+			else
+			{
+				Promise.Cancel();
+			}
+		}
+	);
+	return MoveTemp(Future);
+}
+
+template <typename ... ResultTypes>
+template <typename Func>
+auto TWeakFutureSet<ResultTypes...>::AndThenExpand(Func Continuation)
+{
+	using TFuncReturnType = FunctionTraits::TFunctionTraits<Func>::ResultType;
+	auto [Promise, Future] = MakeWeakPromisePair<TFuncReturnType>();
+	this->AndThenApply(
+		[Continuation = MoveTemp(Continuation), Promise=MoveTemp(Promise)](TOptional<ResultTypes>&&... ResolvedFutureResults) mutable
+		{
+			const bool bAllValid = (ResolvedFutureResults.IsSet() && ... && true);
+			if (bAllValid)
+			{
+				FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation, MoveTempIfPossible(*ResolvedFutureResults)...);
+			}
+			else
+			{
+				Promise.Cancel();
+			}
+		}
+	);
+	return MoveTemp(Future);
+}
+template <>
+template <typename Func>
+auto TWeakFutureSet<void>::AndThenExpand(Func Continuation)
+{
+	using TFuncReturnType = FunctionTraits::TFunctionTraits<Func>::ResultType;
+	auto [Promise, Future] = MakeWeakPromisePair<TFuncReturnType>();
+	this->AndThenApply(
+		[Continuation = MoveTemp(Continuation), Promise=MoveTemp(Promise)](TOptional<void>&& ResolvedFutureResults) mutable
+		{
+			const bool bAllValid = (ResolvedFutureResults.IsSet());
+			if (bAllValid)
+			{
+				FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation);
+			}
+			else
+			{
+				Promise.Cancel();
+			}
+		}
+	);
+	return MoveTemp(Future);
 }

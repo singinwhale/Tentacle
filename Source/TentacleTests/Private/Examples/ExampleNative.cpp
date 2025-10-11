@@ -1,13 +1,18 @@
 ﻿#include "ExampleNative.h"
 
-TSharedPtr<FSimpleNativeService> FExampleNative::Initialize(TSharedPtr<FSimpleNativeService> SimpleNative)
+TSharedRef<FSimpleNativeService> FExampleNative::Initialize(TSharedRef<FSimpleNativeService> SimpleNative)
 {
 	SimpleNativeService = SimpleNative;
-	return SimpleNativeService;
+	return SimpleNative;
 }
 
-TSharedPtr<FSimpleNativeService> FExampleNative::InitializeWithExtraArgs(TSharedPtr<FSimpleNativeService> SimpleNative, FString InExtraString)
+TSharedRef<FSimpleNativeService> FExampleNative::InitializeWithExtraArgs(TSharedRef<FSimpleNativeService> SimpleNative, FString InExtraString)
 {
 	ExtraString = InExtraString;
 	return Initialize(SimpleNative);
+}
+
+const FSimpleUStructService& FExampleNative::InitializeWithUStruct(const FSimpleUStructService& SimpleNative)
+{
+	return SimpleNative;
 }

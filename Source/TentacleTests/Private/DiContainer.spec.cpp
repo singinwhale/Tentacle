@@ -229,30 +229,26 @@ void DiContainerSpec::Define()
 			TObjectPtr<USimpleInterfaceImplementation> UInterfaceService = NewObject<USimpleInterfaceImplementation>();
 			FSimpleUStructService UStructService = {};
 			TSharedRef<FSimpleNativeService> NativeServiceSharedPtr = MakeShared<FSimpleNativeService>();
-			DiContainer.Resolve().WaitForMany<USimpleUService, ISimpleInterface, FSimpleUStructService, FSimpleNativeService>()
-				.ExpandNext([DoneDelegate, this, UService, UInterfaceService, UStructService, NativeServiceSharedPtr](TOptional<TObjectPtr<USimpleUService>> ObjectService,
-				                                                                                                      TOptional<TScriptInterface<ISimpleInterface>> InterfaceService,
-				                                                                                                      TOptional<const FSimpleUStructService&> StructService,
-				                                                                                                      TOptional<TSharedRef<FSimpleNativeService>> NativeService)
-				{
-					if (TestTrue("ObjectService.IsSet()", ObjectService.IsSet()))
+			DiContainer
+				.Resolve()
+				.WaitForMany<USimpleUService, ISimpleInterface, FSimpleUStructService, FSimpleNativeService>()
+				.AndThenExpand([DoneDelegate, this, UService, UInterfaceService, UStructService, NativeServiceSharedPtr](
+					TObjectPtr<USimpleUService> ObjectService,
+					TScriptInterface<ISimpleInterface> InterfaceService,
+					const FSimpleUStructService& StructService,
+					TSharedRef<FSimpleNativeService> NativeService)
 					{
-						TestEqual("ObjectService", ObjectService->Get(), UService.Get());
-					}
-					if (TestTrue("InterfaceService.IsSet()", InterfaceService.IsSet()))
-					{
-						TestEqual<UObject*>("InterfaceService", InterfaceService->GetObject(), UInterfaceService.Get());
-					}
-					if (TestTrue("StructService.IsSet()", StructService.IsSet()))
-					{
-						TestEqual("StructService", *StructService, UStructService);
-					}
-					if (TestTrue("NativeService.IsSet()", NativeService.IsSet()))
-					{
-						TestEqual("NativeService", *NativeService, NativeServiceSharedPtr);
-					}
-					DoneDelegate.Execute();
-				});
+						TestEqual("ObjectService", ObjectService, UService);
+						TestEqual<UObject*>("InterfaceService", InterfaceService.GetObject(), UInterfaceService);
+						TestEqual("StructService", StructService, UStructService);
+						TestEqual("NativeService", NativeService, NativeServiceSharedPtr);
+						DoneDelegate.Execute();
+					})
+			.OrElse([this, DoneDelegate]()
+			{
+				AddError("WaitForMany was canceled");
+				DoneDelegate.Execute();
+			});
 			DiContainer.Bind().Instance<USimpleUService>(UService);
 			DiContainer.Bind().Instance<ISimpleInterface>(UInterfaceService);
 			DiContainer.Bind().Instance<FSimpleUStructService>(UStructService);
@@ -280,7 +276,7 @@ void DiContainerSpec::Define()
 			});
 			It("should inject into free functions", [this]
 			{
-				TestEqual("Service", DiContainer.Inject().IntoFunctionByType(&DI::InjectTest::InjectDependencies), DiContainer.Resolve().TryGet<USimpleUService>());
+				TestEqual("Service", *DiContainer.Inject().IntoFunctionByType(&DI::InjectTest::InjectDependencies), DiContainer.Resolve().TryGet<USimpleUService>());
 			});
 			It("should inject into member functions", [this]
 			{
@@ -299,7 +295,7 @@ void DiContainerSpec::Define()
 			{
 				FExampleNative Native = {};
 				FString ExtraString("test");
-				DiContainer.Inject().IntoLambda([&](TSharedPtr<FSimpleNativeService> NativeService)
+				DiContainer.Inject().IntoLambda([&](TSharedRef<FSimpleNativeService> NativeService)
 				{
 					Native.InitializeWithExtraArgs(NativeService, ExtraString);
 				});
@@ -327,40 +323,65 @@ void DiContainerSpec::Define()
 			{
 				DiContainer.Inject()
 					.AsyncIntoStatic(&DI::InjectTest::InjectDependencies)
-					.Next([this](TOptional<TObjectPtr<USimpleUService>> InjectedService)
+					.Next([this](TOptional<TObjectPtr<USimpleUService>> InjectedDependency)
 					{
-						if (TestTrue("InjectedService.IsSet()", InjectedService.IsSet()))
+						if (TestTrue("InjectedService.IsSet()", InjectedDependency.IsSet()))
 						{
-							TestEqual("InjectedService", *InjectedService, DiContainer.Resolve().TryGet<USimpleUService>());
+							TestEqual("InjectedService", *InjectedDependency, DiContainer.Resolve().TryGet<USimpleUService>());
 						}
 					});
+				DiContainer.Bind().Instance<USimpleUService>(NewObject<USimpleUService>());
 			});
 			It("should async inject into member functions", [this]
 			{
 				TSharedRef<FExampleNative> Native = MakeShared<FExampleNative>();
 				DiContainer.Inject()
-					.AsyncIntoSP<FExampleNative, TSharedPtr<FSimpleNativeService>, TSharedPtr<FSimpleNativeService>>(Native, &FExampleNative::Initialize)
-					.Next([this](TOptional<TSharedPtr<FSimpleNativeService>> NativeService)
+					.AsyncIntoSP<FExampleNative>(Native, &FExampleNative::Initialize)
+					.AndThen([this](TSharedRef<FSimpleNativeService> InjectedDependency)
 					{
-						if (TestTrue("NativeService.IsSet()", NativeService.IsSet()))
-						{
-							TestEqual("NativeService", *NativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>());
-						}
+						TestEqual("InjectedDependency", InjectedDependency, DiContainer.Resolve().TryGet<FSimpleNativeService>().ToSharedRef());
 					});
+				DiContainer.Bind().Instance<FSimpleNativeService>(MakeShared<FSimpleNativeService>());
 			});
 			It("should async inject into uobject member functions", [this]
 			{
 				UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
 				DiContainer.Inject()
 					.AsyncIntoUObject(*ExampleComponent, &UExampleComponent::InjectDependencies)
-					.Next([this](TOptional<TObjectPtr<USimpleUService>> SimpleUService)
+					.Next([this](TOptional<TObjectPtr<USimpleUService>> InjectedDependency)
 					{
-						if (TestTrue("SimpleUService.IsSet()", SimpleUService.IsSet()))
+						if (TestTrue("InjectedDependency.IsSet()", InjectedDependency.IsSet()))
 						{
-							TestEqual("SimpleUService", *SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
+							TestEqual("InjectedDependency", *InjectedDependency, DiContainer.Resolve().TryGet<USimpleUService>());
 						}
 					});
-				TestEqual("NativeService", ExampleComponent->SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
+				DiContainer.Bind().Instance<USimpleUService>(NewObject<USimpleUService>());
+			});
+			LatentIt("should async inject into complex object member functions", [this](FDoneDelegate DoneDelegate)
+			{
+				UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
+				DiContainer.Bind().Instance<USimpleUService>(NewObject<USimpleUService>());
+				DiContainer.Bind().Instance<FSimpleNativeService>(MakeShared<FSimpleNativeService>());
+				DiContainer.Bind().Instance<ISimpleInterface>(NewObject<USimpleInterfaceImplementation>());
+				DiContainer.Bind().Instance<FSimpleUStructService>(FSimpleUStructService(999));
+				DiContainer.Inject()
+					.AsyncIntoUObject(*ExampleComponent, &UExampleComponent::ComplexInjectDependencies)
+					.Next([this,DoneDelegate](TOptional<TTuple<TObjectPtr<USimpleUService>, TScriptInterface<ISimpleInterface>, TSharedRef<FSimpleNativeService>, const FSimpleUStructService*>> InjectedDependencies)
+					{
+						if (TestTrue("SimpleUService.IsSet()", InjectedDependencies.IsSet()))
+						{
+							auto [SimpleUService, InterfaceService, SimpleNativeService, SimpleStruct] = *InjectedDependencies;
+							TestEqual("SimpleUService", SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
+							TestEqual("InterfaceService", InterfaceService, DiContainer.Resolve().TryGet<ISimpleInterface>());
+							TestEqual("SimpleNativeService", SimpleNativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>().ToSharedRef());
+							TestEqual("SimpleStruct", SimpleStruct, &*DiContainer.Resolve().TryGet<FSimpleUStructService>());
+						}
+						DoneDelegate.Execute();
+					}).OrElse([this, DoneDelegate]
+					{
+						AddError("AsyncIntoUObject has been canceled.");
+						DoneDelegate.Execute();
+					});
 			});
 		});
 	});
