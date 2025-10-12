@@ -184,7 +184,7 @@ namespace DI
 			UObject* WaitingObject = nullptr,
 			EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
-			return AwaitAllWeak(this->WaitFor<Ts>(WaitingObject, ErrorBehavior)...);
+			return this->template WaitForManyNamed<Ts...>(WaitingObject, ErrorBehavior, (TVoid<Ts>(), NAME_None)...);
 		}
 
 		/**
@@ -224,25 +224,6 @@ namespace DI
 				this->template WaitForNamed<Ts>(BindingNames, WaitingObject, ErrorBehavior)...
 			);
 			return AwaitAllInTuple(MoveTemp(Futures));
-			/*
-			TWeakFuture<TTuple<TBindingInstPtr<Ts>...>> FuturePointers =
-				AwaitAllInTuple(MoveTemp(Futures))
-				.Next([](TOptional<TTuple<TOptional<TBindingInstRef<Ts>>...>> Values) -> TTuple<TBindingInstPtr<Ts>...>
-				{
-					if (!Values.IsSet()) 
-						return {};
-					
-					return TransformTuple(*Values, []<class TBindingRef>(const TOptional<TBindingRef>& Result)
-					{
-						using T = TBindingInstBaseType<TBindingRef>::Type;
-						if (Result.IsSet())
-						{
-							return TBindingInstPtr<T>(*Result);
-						}
-						return TBindingInstPtr<T>();
-					});
-				});
-			return TWeakFutureSet<TBindingInstPtr<Ts>...>(MoveTemp(FuturePointers));*/
 		}
 
 		template <class... Ts, class... TNames>
