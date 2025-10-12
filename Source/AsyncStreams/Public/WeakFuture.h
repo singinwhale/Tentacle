@@ -1465,7 +1465,7 @@ namespace FutureDetail
 	}
 
 	template<class TContinuation, class TContinuationReturnType, class ...TContinuationArgs>
-	void SetPromiseValueFromContinuationResult(TWeakPromise<TContinuationReturnType>& Promise, TContinuation&& Continuation, TContinuationArgs... ContinuationArgs)
+	void SetPromiseValueFromContinuationResult(TWeakPromise<TContinuationReturnType>& Promise, TContinuation&& Continuation, TContinuationArgs&&... ContinuationArgs)
 	{
 		if constexpr (sizeof...(ContinuationArgs) == 0 && std::is_same_v<TContinuationReturnType, void>)
 		{
@@ -1563,7 +1563,7 @@ auto TWeakFutureBase<InternalResultType>::AndThen(Func Continuation) //-> TWeakF
 			}
 			else
 			{
-				FutureDetail::SetPromiseValueFromContinuationResult(PromiseCapture, ContinuationCapture, MoveTemp(*StateCapture->GetResult()));
+				FutureDetail::SetPromiseValueFromContinuationResult(PromiseCapture, ContinuationCapture, *StateCapture->GetResult());
 			}
 		}
 	};
@@ -1807,19 +1807,6 @@ auto TWeakFutureValues<ResultTypes...>::AndThenApply(Func Continuation)
 
 namespace TupleCatPrivate
 {
-	template<typename ...TTupleTypes>
-	std::tuple<TTupleTypes...> TTupleToStdTuple(TTuple<TTupleTypes...> Tuple)
-	{
-		return MoveTemp(Tuple).ApplyAfter(&std::make_tuple);
-	}
-	template<typename ...TTupleTypes>
-	TTuple<TTupleTypes...> TTupleFromStdTuple(std::tuple<TTupleTypes...> Tuple)
-	{
-		return std::apply(&MakeTuple, MoveTemp(Tuple));
-	}
-}
-namespace TupleCatPrivate
-{
 	// Base case: no tuples
 	inline TTuple<> TupleCatImpl()
 	{
@@ -1867,35 +1854,35 @@ auto TupleCat(TTuples... Tuples)
 namespace AndThenExpandDetail
 {
 	template<class TCallableN, class ...TCheckedTypes, class TLastType>
-	void ApplyNonVoid(TCallableN&& CallableN, TTuple<TOptional<TCheckedTypes>...>&& CheckedTuple, TOptional<TLastType> Last)
+	void ApplyNonVoidInternal(TCallableN&& CallableN, TTuple<TOptional<TCheckedTypes>...>&& CheckedTuple, TOptional<TLastType>&& Last)
 	{
 		if constexpr (std::is_same_v<TLastType, void>)
 		{
-			CheckedTuple.ApplyBefore(CallableN);
+			MoveTemp(CheckedTuple).ApplyBefore(CallableN);
 		}
 		else
 		{
-			CheckedTuple.ApplyBefore(CallableN, MoveTemp(Last));
+			MoveTemp(CheckedTuple).ApplyBefore(CallableN, MoveTemp(Last));
 		}
 	}
 	
 	template<class TCallableN, class ...TCheckedTypes, class TType, class... TTypes>
-	void ApplyNonVoid(TCallableN&& CallableN, TTuple<TOptional<TCheckedTypes>...>&& CheckedTuple, TOptional<TType> CurrentArg, TOptional<TTypes>... NextArgs)
+	void ApplyNonVoidInternal(TCallableN&& CallableN, TTuple<TOptional<TCheckedTypes>...>&& CheckedTuple, TOptional<TType>&& CurrentArg, TOptional<TTypes>&&... NextArgs)
 	{
 		if constexpr (std::is_same_v<TType, void>)
 		{
-			ApplyNonVoid(CallableN, MoveTemp(CheckedTuple), MoveTemp(NextArgs)...);
+			ApplyNonVoidInternal(CallableN, MoveTemp(CheckedTuple), MoveTemp(NextArgs)...);
 		}
 		else
 		{
-			ApplyNonVoid(CallableN, TupleCat(CheckedTuple, MakeTuple(MoveTemp(CurrentArg))), MoveTemp(NextArgs)...);
+			ApplyNonVoidInternal(CallableN, TupleCat(CheckedTuple, MakeTuple(MoveTemp(CurrentArg))), MoveTemp(NextArgs)...);
 		}
 	}
 	
 	template<class TCallableN, class... TTypes>
-	void ApplyNonVoidStart(TCallableN CallableN, TOptional<TTypes>... TArgs)
+	void ApplyNonVoid(TCallableN&& CallableN, TOptional<TTypes>&&... TArgs)
 	{
-		ApplyNonVoid(CallableN, TTuple<>(), TArgs...);
+		ApplyNonVoidInternal(CallableN, TTuple<>(), MoveTempIfPossible(TArgs)...);
 	}
 }
 
@@ -1911,18 +1898,16 @@ auto TWeakFutureSet<ResultTypes...>::AndThenExpand(Func Continuation)
 			const bool bAllValid = (ResolvedFutureResults.IsSet() && ... && true);
 			if (bAllValid)
 			{
-				// If any of the Futures is a void future we don't forward any results for now.
-				// TODO: In the future we would like to support this by "filtering" the void results from the result list.
-				// This could be done via a recursive function
-				if constexpr ((std::is_same_v<ResultTypes, void> && ...))
+				constexpr bool bAllResultTypesAreVoid = (std::is_same_v<ResultTypes, void> && ...);
+				if constexpr (bAllResultTypesAreVoid)
 				{
 					FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation);
 				}
 				else
 				{
-					AndThenExpandDetail::ApplyNonVoidStart([&](auto... OptionalResults){
-						FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation, MoveTempIfPossible(*OptionalResults)...);
-					}, ResolvedFutureResults...);
+					AndThenExpandDetail::ApplyNonVoid([&](/*TOptional<NonVoidResultTypes>*/auto... OptionalResults){
+						FutureDetail::SetPromiseValueFromContinuationResult(Promise, MoveTemp(Continuation), MoveTempIfPossible(*OptionalResults)...);
+					}, MoveTempIfPossible(ResolvedFutureResults)...);
 				}
 
 			}

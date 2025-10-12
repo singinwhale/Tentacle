@@ -364,7 +364,10 @@ namespace DI
 					const bool bAllIsResolvedAndValid = (TIsBindingPtrValid<TArgs>::Check(ResolvedBindings) && ... && true);
 					if (ValidInstance && bAllIsResolvedAndValid)
 					{
-						RetValPromise.EmplaceValue((*ValidInstance.*MemberFunction)(MoveTempIfPossible(ResolvedBindings)...));
+						FutureDetail::SetPromiseValueFromContinuationResult(RetValPromise,[&](auto&&... Bindings)
+						{
+							return (*ValidInstance.*MemberFunction)(Bindings...);
+						}, MoveTempIfPossible(ResolvedBindings)...);
 					}
 					else
 					{
