@@ -1804,6 +1804,64 @@ auto TWeakFutureValues<ResultTypes...>::AndThenApply(Func Continuation)
 	return MoveTemp(Future);
 }
 
+
+namespace WeakFuturePrivate
+{
+	template<typename ...TTupleTypes>
+	std::tuple<TTupleTypes...> TTupleToStdTuple(TTuple<TTupleTypes...> Tuple)
+	{
+		return Tuple.ApplyAfter(&std::make_tuple);
+	}
+	template<typename ...TTupleTypes>
+	TTuple<TTupleTypes...> TTupleFromStdTuple(std::tuple<TTupleTypes...> Tuple)
+	{
+		return std::apply(&MakeTuple, Forward(Tuple));
+	}
+}
+
+template<typename ...TTuples>
+auto TupleCat(TTuples ...Tuples)
+{
+	return WeakFuturePrivate::TTupleFromStdTuple(std::tuple_cat(WeakFuturePrivate::TTupleToStdTuple(Tuples)...));
+}
+
+/*
+namespace AndThenExpandDetail
+{
+	template<class TCallableN, class TCallableZero, class TTransformArgFunc, class TType, class ...TCheckedTypes, class... TTypes>
+	void ApplyNonVoid(TCallableN CallableN, TCallableZero CallableZero, TTuple<TOptional<TCheckedTypes>...> CheckedTuple)
+	{
+		if constexpr (sizeof...(TCheckedTypes) > 0)
+		{
+			CheckedTuple.ApplyAfter(CallableN);
+		}
+		else
+		{
+			CallableZero();
+		}
+	}
+	
+	template<class TCallableN, class TCallableZero, class TTransformArgFunc, class TType, class ...TCheckedTypes, class... TTypes>
+	void ApplyNonVoid(TCallableN CallableN, TCallableZero CallableZero, TTuple<TOptional<TCheckedTypes>...> CheckedTuple, TOptional<TType> CurrentArg, TOptional<TTypes>... NextArgs)
+	{
+		if constexpr (std::is_same_v<TType, void>)
+		{
+			ApplyNonVoid(CallableN, CallableZero, NextArgs...);
+		}
+		else
+		{
+			ApplyNonVoid(CallableN, CallableZero, TupleCat(CheckedTuple, MakeTuple(CurrentArg)), NextArgs...);
+		}
+	}
+	
+	template<class TCallableN, class TCallableZero, class TTransformArgFunc, class... TTypes>
+	void ApplyNonVoidStart(TCallableN CallableN, TCallableZero CallableZero, TOptional<TTypes>... TArgs)
+	{
+		ApplyNonVoid(CallableN, CallableZero, TTuple<>(), TArgs...);
+	}
+}
+*/
+
 template <typename ... ResultTypes>
 template <typename Func>
 auto TWeakFutureSet<ResultTypes...>::AndThenExpand(Func Continuation)
@@ -1816,29 +1874,17 @@ auto TWeakFutureSet<ResultTypes...>::AndThenExpand(Func Continuation)
 			const bool bAllValid = (ResolvedFutureResults.IsSet() && ... && true);
 			if (bAllValid)
 			{
-				FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation, MoveTempIfPossible(*ResolvedFutureResults)...);
-			}
-			else
-			{
-				Promise.Cancel();
-			}
-		}
-	);
-	return MoveTemp(Future);
-}
-template <>
-template <typename Func>
-auto TWeakFutureSet<void>::AndThenExpand(Func Continuation)
-{
-	using TFuncReturnType = FunctionTraits::TFunctionTraits<Func>::ResultType;
-	auto [Promise, Future] = MakeWeakPromisePair<TFuncReturnType>();
-	this->AndThenApply(
-		[Continuation = MoveTemp(Continuation), Promise=MoveTemp(Promise)](TOptional<void>&& ResolvedFutureResults) mutable
-		{
-			const bool bAllValid = (ResolvedFutureResults.IsSet());
-			if (bAllValid)
-			{
-				FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation);
+				// If any of the Futures is a void future we don't forward any results for now.
+				// TODO: In the future we would like to support this by "filtering" the void results from the result list.
+				// This could be done via a recursive function
+				if constexpr ((std::is_same_v<ResultTypes, void> || ...))
+				{
+					FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation);
+				}
+				else
+				{
+					FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation, MoveTempIfPossible(*ResolvedFutureResults)...);
+				}
 			}
 			else
 			{

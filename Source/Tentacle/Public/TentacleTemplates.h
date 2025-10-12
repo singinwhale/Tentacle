@@ -280,30 +280,6 @@ namespace DI
 		return Instance.ToWeakPtr();
 	}
 
-
-
-	namespace Private
-	{
-		template<typename ...TTupleTypes>
-		std::tuple<TTupleTypes...> TTupleToStdTuple(TTuple<TTupleTypes...> Tuple)
-		{
-			return Tuple.ApplyAfter(&std::make_tuple);
-		}
-		template<typename ...TTupleTypes>
-		TTuple<TTupleTypes...> TTupleFromStdTuple(std::tuple<TTupleTypes...> Tuple)
-		{
-			return std::apply(&MakeTuple, Forward(Tuple));
-		}
-
-
-	}
-
-	template<typename ...TTuples>
-	auto TupleCat(TTuples ...Tuples)
-	{
-		return Private::TTupleFromStdTuple(std::tuple_cat(Private::TTupleToStdTuple(Tuples)...));
-	}
-
 	/**
 	 * Creates a TTuple<T, T, ..., T> of the requested length with every element initialised to Value.
 	 * Example:
