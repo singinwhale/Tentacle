@@ -2,7 +2,7 @@
 #include "Misc/AutomationTest.h"
 
 BEGIN_DEFINE_SPEC(WeakPromiseSpec, "Tentacle.AsyncStreams.WeakPromise",
-                  EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ProgramContext)
+                  EAutomationTestFlags::EngineFilter | EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProgramContext)
 END_DEFINE_SPEC(WeakPromiseSpec)
 
 void WeakPromiseSpec::Define()

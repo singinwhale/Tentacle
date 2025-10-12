@@ -21,7 +21,15 @@ struct FSimpleUStructService
 {
 	GENERATED_BODY()
 
-	int32 A;
+	int32 A = 0;
+
+	FSimpleUStructService()
+	{
+	}
+
+	FSimpleUStructService(int32 InA):A(InA)
+	{
+	}
 
 	bool operator==(const FSimpleUStructService& Other) const
 	{

@@ -2,11 +2,11 @@
 #include "Misc/AutomationTest.h"
 
 BEGIN_DEFINE_SPEC(WeakFutureSetSpec, "Tentacle.AsyncStreams.WeakFutureSet",
-                  EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ProgramContext)
+                  EAutomationTestFlags::EngineFilter | EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProgramContext)
 END_DEFINE_SPEC(WeakFutureSetSpec)
 
 void WeakFutureSetSpec::Define()
-{
+{	
 	Describe("AndThenExpand", [this]
 	{
 		LatentIt("works with single void types", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
@@ -25,7 +25,7 @@ void WeakFutureSetSpec::Define()
 						DoneDelegate.Execute();
 					});
 			}
-			Promise.SetValue(TTuple<TOptional<void>>{});
+			Promise.SetValue(MakeTuple<TOptional<void>>(true));
 		});
 		
 		LatentIt("works with mixed void types", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
@@ -46,7 +46,7 @@ void WeakFutureSetSpec::Define()
 						DoneDelegate.Execute();
 					});
 			}
-			Promise.SetValue(TTuple<TOptional<void>,TOptional<int32>,TOptional<void>>{});
+			Promise.SetValue(MakeTuple<TOptional<void>,TOptional<int32>,TOptional<void>>(true, TestValue, true));
 		});
 
 		LatentIt("should transport the value properly", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
@@ -64,7 +64,22 @@ void WeakFutureSetSpec::Define()
 			Promise.SetValue(MakeTuple<TOptional<int32>>(TestValue));
 		});
 
-		LatentIt("should transport the value properly", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
+		LatentIt("should transport references properly", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
+		{
+			const int32 TestValue = 1234;
+			TWeakPromiseSet<const int32&> Promise;
+			{
+				TWeakFutureSet<const int32&> Future = Promise.GetWeakFutureSet();
+				Future.AndThenExpand([this, DoneDelegate, TestValue](const int32& InTransportedValue)
+				{
+					TestSame("InTransportedValue", InTransportedValue, TestValue);
+					DoneDelegate.Execute();
+				});
+			}
+			Promise.SetValue(MakeTuple<TOptional<const int32&>>(TestValue));
+		});
+
+		LatentIt("should transport the returned value properly", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
 		{
 			const int32 TestValue = 1234;
 			TWeakPromiseSet<int32> Promise;
@@ -82,6 +97,31 @@ void WeakFutureSetSpec::Define()
 					});
 			}
 			Promise.SetValue(MakeTuple<TOptional<int32>>(TestValue));
+		});
+		
+		LatentIt("should transport references to immovable and uncopyable types properly", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
+		{
+			struct FImmovable
+			{
+				FImmovable(int32 InA):A(InA){};
+				FImmovable(FImmovable&& Other) = delete;
+				FImmovable& operator=(FImmovable&& Other) = delete;
+				FImmovable(const FImmovable&) = delete;
+				FImmovable& operator=(const FImmovable&) = delete;
+
+				int32 A = -1;
+			};
+			const FImmovable TestValue = FImmovable(1234);
+			TWeakPromiseSet<const FImmovable&> Promise;
+			{
+				TWeakFutureSet<const FImmovable&> Future = Promise.GetWeakFutureSet();
+				Future.AndThenExpand([this, DoneDelegate, &TestValue](const FImmovable& InTransportedValue)
+				{
+					TestSame("InTransportedValue", InTransportedValue, TestValue);
+					DoneDelegate.Execute();
+				});
+			}
+			Promise.SetValue(MakeTuple<TOptional<const FImmovable&>>(TestValue));
 		});
 	});
 }
