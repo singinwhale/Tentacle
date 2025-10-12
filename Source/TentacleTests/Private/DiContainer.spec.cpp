@@ -375,6 +375,7 @@ void DiContainerSpec::Define()
 							TestEqual("InterfaceService", InterfaceService, DiContainer.Resolve().TryGet<ISimpleInterface>());
 							TestEqual("SimpleNativeService", SimpleNativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>().ToSharedRef());
 							TestEqual("SimpleStruct", SimpleStruct, &*DiContainer.Resolve().TryGet<FSimpleUStructService>());
+							TestEqual("SimpleStructValues", SimpleStruct->A, DiContainer.Resolve().TryGet<FSimpleUStructService>()->A);
 						}
 						DoneDelegate.Execute();
 					}).OrElse([this, DoneDelegate]

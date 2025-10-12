@@ -9,7 +9,7 @@ void WeakFutureSetSpec::Define()
 {
 	Describe("AndThenExpand", [this]
 	{
-		LatentIt("works with void functions", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
+		LatentIt("works with single void types", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
 		{
 			TWeakPromiseSet<void> Promise;
 			{
@@ -26,6 +26,27 @@ void WeakFutureSetSpec::Define()
 					});
 			}
 			Promise.SetValue(TTuple<TOptional<void>>{});
+		});
+		
+		LatentIt("works with mixed void types", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)
+		{
+			constexpr int32 TestValue = 1234;
+			TWeakPromiseSet<void, int32, void> Promise;
+			{
+				TWeakFutureSet<void, int32, void> Future = Promise.GetWeakFutureSet();
+				Future
+					.AndThenExpand([this, DoneDelegate](int32 TransportedValue)
+					{
+						TestEqual("TransportedValue", TransportedValue, TestValue);
+						DoneDelegate.Execute();
+					})
+					.OrElse([this, DoneDelegate]
+					{
+						AddError("Future was canceled for no good reason.");
+						DoneDelegate.Execute();
+					});
+			}
+			Promise.SetValue(TTuple<TOptional<void>,TOptional<int32>,TOptional<void>>{});
 		});
 
 		LatentIt("should transport the value properly", FTimespan::FromSeconds(1), [this](FDoneDelegate DoneDelegate)

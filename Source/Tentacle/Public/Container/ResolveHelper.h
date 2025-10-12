@@ -286,7 +286,7 @@ namespace DI
 			}
 			else
 			{
-				auto Callback = [Promise](const DI::FBinding& BindingInstance) mutable
+				auto Callback = [Promise = MoveTemp(Promise)](const DI::FBinding& BindingInstance) mutable
 				{
 					const TBindingType<TInstanceType>& SpecificBinding = static_cast<const TBindingType<TInstanceType>&>(BindingInstance);
 					TBindingInstRef<TInstanceType> Resolved = SpecificBinding.Resolve();

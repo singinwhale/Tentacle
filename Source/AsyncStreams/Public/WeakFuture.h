@@ -1805,62 +1805,99 @@ auto TWeakFutureValues<ResultTypes...>::AndThenApply(Func Continuation)
 }
 
 
-namespace WeakFuturePrivate
+namespace TupleCatPrivate
 {
 	template<typename ...TTupleTypes>
 	std::tuple<TTupleTypes...> TTupleToStdTuple(TTuple<TTupleTypes...> Tuple)
 	{
-		return Tuple.ApplyAfter(&std::make_tuple);
+		return MoveTemp(Tuple).ApplyAfter(&std::make_tuple);
 	}
 	template<typename ...TTupleTypes>
 	TTuple<TTupleTypes...> TTupleFromStdTuple(std::tuple<TTupleTypes...> Tuple)
 	{
-		return std::apply(&MakeTuple, Forward(Tuple));
+		return std::apply(&MakeTuple, MoveTemp(Tuple));
+	}
+}
+namespace TupleCatPrivate
+{
+	// Base case: no tuples
+	inline TTuple<> TupleCatImpl()
+	{
+		return {};
+	}
+
+	// Base case: single tuple
+	template<typename TTupleType>
+	TTupleType&& TupleCatImpl(TTupleType&& Tuple)
+	{
+		return Tuple;
+	}
+
+	// Recursive case: concatenate first tuple with the result of concatenating the rest
+	template <typename TFirstTuple, typename... TRestTuples>
+	auto TupleCatImpl(TFirstTuple&& First, const TRestTuples&&... Rest)
+	{
+		// Recursively concatenate the rest
+		auto RestResult = TupleCatImpl(Rest...);
+
+		constexpr int32 FirstSize = TTupleArity<TFirstTuple>::Value;
+		using FirstIndices = TMakeIntegerSequence<int32, FirstSize>;
+
+		constexpr int32 RestSize = TTupleArity<decltype(RestResult)>::Value;
+		using RestIndices = TMakeIntegerSequence<int32, RestSize>;
+
+		return [&First, &RestResult]<int32... FirstIs, int32... RestIs>(
+			TIntegerSequence<int32, FirstIs...>,
+			TIntegerSequence<int32, RestIs...>)
+			{
+				return MakeTuple(
+					MoveTempIfPossible(First.template Get<FirstIs>())...,
+					MoveTempIfPossible(RestResult.template Get<RestIs>())...
+				);
+			}(FirstIndices{}, RestIndices{});
 	}
 }
 
-template<typename ...TTuples>
-auto TupleCat(TTuples ...Tuples)
+template <typename... TTuples>
+auto TupleCat(TTuples... Tuples)
 {
-	return WeakFuturePrivate::TTupleFromStdTuple(std::tuple_cat(WeakFuturePrivate::TTupleToStdTuple(Tuples)...));
+	return TupleCatPrivate::TupleCatImpl(MoveTemp(Tuples)...);
 }
 
-/*
 namespace AndThenExpandDetail
 {
-	template<class TCallableN, class TCallableZero, class TTransformArgFunc, class TType, class ...TCheckedTypes, class... TTypes>
-	void ApplyNonVoid(TCallableN CallableN, TCallableZero CallableZero, TTuple<TOptional<TCheckedTypes>...> CheckedTuple)
+	template<class TCallableN, class ...TCheckedTypes, class TLastType>
+	void ApplyNonVoid(TCallableN&& CallableN, TTuple<TOptional<TCheckedTypes>...>&& CheckedTuple, TOptional<TLastType> Last)
 	{
-		if constexpr (sizeof...(TCheckedTypes) > 0)
+		if constexpr (std::is_same_v<TLastType, void>)
 		{
-			CheckedTuple.ApplyAfter(CallableN);
+			CheckedTuple.ApplyBefore(CallableN);
 		}
 		else
 		{
-			CallableZero();
+			CheckedTuple.ApplyBefore(CallableN, MoveTemp(Last));
 		}
 	}
 	
-	template<class TCallableN, class TCallableZero, class TTransformArgFunc, class TType, class ...TCheckedTypes, class... TTypes>
-	void ApplyNonVoid(TCallableN CallableN, TCallableZero CallableZero, TTuple<TOptional<TCheckedTypes>...> CheckedTuple, TOptional<TType> CurrentArg, TOptional<TTypes>... NextArgs)
+	template<class TCallableN, class ...TCheckedTypes, class TType, class... TTypes>
+	void ApplyNonVoid(TCallableN&& CallableN, TTuple<TOptional<TCheckedTypes>...>&& CheckedTuple, TOptional<TType> CurrentArg, TOptional<TTypes>... NextArgs)
 	{
 		if constexpr (std::is_same_v<TType, void>)
 		{
-			ApplyNonVoid(CallableN, CallableZero, NextArgs...);
+			ApplyNonVoid(CallableN, MoveTemp(CheckedTuple), MoveTemp(NextArgs)...);
 		}
 		else
 		{
-			ApplyNonVoid(CallableN, CallableZero, TupleCat(CheckedTuple, MakeTuple(CurrentArg)), NextArgs...);
+			ApplyNonVoid(CallableN, TupleCat(CheckedTuple, MakeTuple(MoveTemp(CurrentArg))), MoveTemp(NextArgs)...);
 		}
 	}
 	
-	template<class TCallableN, class TCallableZero, class TTransformArgFunc, class... TTypes>
-	void ApplyNonVoidStart(TCallableN CallableN, TCallableZero CallableZero, TOptional<TTypes>... TArgs)
+	template<class TCallableN, class... TTypes>
+	void ApplyNonVoidStart(TCallableN CallableN, TOptional<TTypes>... TArgs)
 	{
-		ApplyNonVoid(CallableN, CallableZero, TTuple<>(), TArgs...);
+		ApplyNonVoid(CallableN, TTuple<>(), TArgs...);
 	}
 }
-*/
 
 template <typename ... ResultTypes>
 template <typename Func>
@@ -1877,14 +1914,17 @@ auto TWeakFutureSet<ResultTypes...>::AndThenExpand(Func Continuation)
 				// If any of the Futures is a void future we don't forward any results for now.
 				// TODO: In the future we would like to support this by "filtering" the void results from the result list.
 				// This could be done via a recursive function
-				if constexpr ((std::is_same_v<ResultTypes, void> || ...))
+				if constexpr ((std::is_same_v<ResultTypes, void> && ...))
 				{
 					FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation);
 				}
 				else
 				{
-					FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation, MoveTempIfPossible(*ResolvedFutureResults)...);
+					AndThenExpandDetail::ApplyNonVoidStart([&](auto... OptionalResults){
+						FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation, MoveTempIfPossible(*OptionalResults)...);
+					}, ResolvedFutureResults...);
 				}
+
 			}
 			else
 			{
