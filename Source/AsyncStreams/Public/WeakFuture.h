@@ -1315,12 +1315,22 @@ public:
 	}
 
 	/**
+	 * Copy constructor.
+	 *
+	 * @param Other The promise holding the shared state to copy.
+	 */
+	TWeakPromise(const TWeakPromise& Other)
+		: BaseType(Other), FutureRetrieved(Other.FutureRetrieved)
+	{
+	}
+
+	/**
 	 * Move constructor.
 	 *
 	 * @param Other The promise holding the shared state to move.
 	 */
 	TWeakPromise(TWeakPromise&& Other)
-		: BaseType(MoveTemp(Other)), FutureRetrieved(false)
+		: BaseType(MoveTemp(Other)), FutureRetrieved(Other.FutureRetrieved)
 	{
 	}
 
