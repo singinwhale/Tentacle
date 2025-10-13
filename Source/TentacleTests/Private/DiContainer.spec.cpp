@@ -293,18 +293,18 @@ void DiContainerSpec::Define()
 			});
 			It("should inject into free functions", [this]
 			{
-				TestEqual("Service", *DiContainer.Inject().IntoFunctionByType(&DI::InjectTest::InjectDependencies), DiContainer.Resolve().TryGet<USimpleUService>());
+				TestEqual("Service", *DiContainer.Inject().IntoStatic(&DI::InjectTest::InjectDependencies), DiContainer.Resolve().TryGet<USimpleUService>());
 			});
 			It("should inject into member functions", [this]
 			{
 				FExampleNative Native = {};
-				DiContainer.Inject().IntoFunctionByType(Native, &FExampleNative::Initialize);
+				DiContainer.Inject().IntoInstance(Native, &FExampleNative::Initialize);
 				TestEqual("Native.SimpleNativeService", Native.SimpleNativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>());
 			});
 			It("should inject into uobject member functions", [this]
 			{
 				UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
-				DiContainer.Inject().IntoFunctionByType(*ExampleComponent, &UExampleComponent::InjectDependencies);
+				DiContainer.Inject().IntoInstance(*ExampleComponent, &UExampleComponent::InjectDependencies);
 				TestEqual("ExampleComponent->SimpleUService", ExampleComponent->SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
 			});
 
