@@ -563,7 +563,7 @@ namespace DI
 		AsyncIntoUObjectInternal(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
 		{
 			auto [RetValPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
-			static_assert((std::convertible_to<TBindingInstRef<typename TBindingInstBaseType<TArgs>::Type>, TArgs> && ...));
+			static_assert((DI::Private::convertible_to<TBindingInstRef<typename TBindingInstBaseType<TArgs>::Type>, TArgs> && ...));
 			this->DiContainer
 				.Resolve()
 				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(&Instance, ErrorBehavior, BindingNames...)
