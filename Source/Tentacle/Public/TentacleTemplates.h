@@ -128,6 +128,12 @@ namespace DI
 	};
 
 	template <class T>
+	struct TBindingInstBaseType<T*>
+	{
+		using Type = typename TBindingInstBaseType<T>::Type;
+	};
+
+	template <class T>
 	struct TBindingInstBaseType<TScriptInterface<T>>
 	{
 		using Type = T;

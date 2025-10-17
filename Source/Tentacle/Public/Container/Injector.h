@@ -563,7 +563,8 @@ namespace DI
 		AsyncIntoUObjectInternal(T& Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames&&... BindingNames) const
 		{
 			auto [RetValPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
-			static_assert((DI::Private::convertible_to<TBindingInstRef<typename TBindingInstBaseType<TArgs>::Type>, TArgs> && ...));
+			static_assert((DI::Private::convertible_to<TBindingInstRef<typename TBindingInstBaseType<TArgs>::Type>, TArgs> && ...),
+				"Your arguments must be implicitly convertible from TObjectPtr<T>, TScriptInterface<T>, TSharedRef<T>, or const T& (for UStructs)");
 			this->DiContainer
 				.Resolve()
 				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(&Instance, ErrorBehavior, BindingNames...)
@@ -596,6 +597,8 @@ namespace DI
 		AsyncIntoSPInternal(TSharedRef<T> Instance, TRetVal (T::*MemberFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
 			auto [OutPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
+			static_assert((DI::Private::convertible_to<TBindingInstRef<typename TBindingInstBaseType<TArgs>::Type>, TArgs> && ...),
+				"Your arguments must be implicitly convertible from TObjectPtr<T>, TScriptInterface<T>, TSharedRef<T>, or const T& (for UStructs)");
 			this->DiContainer
 				.Resolve()
 				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(nullptr, ErrorBehavior, BindingNames...)
@@ -621,6 +624,8 @@ namespace DI
 		AsyncIntoStaticInternal(TRetVal (*StaticFunction)(TArgs...), EResolveErrorBehavior ErrorBehavior, TNames... BindingNames) const
 		{
 			auto [OutPromise, OutFuture] = MakeWeakPromisePair<TRetVal>();
+			static_assert((DI::Private::convertible_to<TBindingInstRef<typename TBindingInstBaseType<TArgs>::Type>, TArgs> && ...),
+				"Your arguments must be implicitly convertible from TObjectPtr<T>, TScriptInterface<T>, TSharedRef<T>, or const T& (for UStructs)");
 			this->DiContainer
 				.Resolve()
 				.template WaitForManyNamed<typename TBindingInstBaseType<TArgs>::Type...>(nullptr, ErrorBehavior, BindingNames...)
