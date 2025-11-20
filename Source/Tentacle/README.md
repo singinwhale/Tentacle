@@ -22,7 +22,7 @@ TObjectPtr<USimpleService> ResolvedService = DiContainer.Resolve().TryGet<USimpl
 check(ResolvedService == Service);
 
 // Or call a function with its arguments populated from the container
-DiContainer.Inject().AsyncIntoUObject(*ExampleComponent, &UExampleComponent::InjectDependencies);
+DiContainer.Inject().AsyncIntoFunctionByType(*ExampleComponent, &UExampleComponent::InjectDependencies);
 ```
 
 You can find more examples in the [Examples Folder](../TentacleTests/Private/Examples).
@@ -97,7 +97,7 @@ The general case would go something like this:
 
 ```c++
 UExampleComponent* ExampleComponent = NewObject<UExampleComponent>();
-DiContainer.Inject().AsyncIntoUObject(*ExampleComponent, &UExampleComponent::InjectDependencies);
+DiContainer.Inject().AsyncIntoFunctionByType(*ExampleComponent, &UExampleComponent::InjectDependencies);
 ```
 
 #### Actor Components
@@ -162,7 +162,7 @@ Engine <-- Game Instance <-- World
 ```
 
 It is recommended to link the Player Controller to the Local Player and to the World.
-If your game never repossesses the Pawn then you can also parent the Pawn to the Player Controller. 
+It is furthermore recommended to link the Pawn to the Player Controller. 
 See the [ExamplePlayerController](../TentacleTests/Private/Examples/ExamplePlayerController.cpp) for a reference implementation.
 
 With the structure implemented by the example player controller, it looks like so:
