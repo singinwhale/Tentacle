@@ -125,6 +125,8 @@ public:
 	{
 	}
 
+	static const FTypeId InvalidId; 
+
 	FName GetName() const;
 
 	UStruct* TryGetUType() const
@@ -230,12 +232,11 @@ namespace DI
 	const FTypeId& GetFreeTypeId()
 	{
 		static_assert(
-			Private::TAlwaysFalse<T>::Value,
+			Private::TAlwaysFalse<T>::value,
 			"Your type does not provide a Type Use `DI_DEFINE_NATIVE_TYPEID_MEMBER(YourClass)` in your class"
 			" or use `DI_DEFINE_FREE_NATIVE_TYPEID(SomeClass)` to define the type ID for a foreign type."
 		);
-		static FTypeId Null = {}; // fix a compiler warning due to returning a reference to a temporary value.
-		return Null;
+		return FTypeId::InvalidId;
 	}
 
 	template <class T>

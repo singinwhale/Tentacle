@@ -3,6 +3,8 @@
 
 #include "TypeId.h"
 
+const DI::FTypeId DI::FTypeId::InvalidId = FTypeId();
+
 FName DI::FTypeId::GetName() const
 {
 	switch (Type)
