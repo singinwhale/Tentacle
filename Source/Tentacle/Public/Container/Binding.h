@@ -65,7 +65,7 @@ namespace DI
 
 		virtual bool IsValid() const override
 		{
-			return bool(UObjectDependency);
+			return ::IsValid(UObjectDependency);
 		}
 
 		TObjectPtr<T> Resolve() const
@@ -96,7 +96,7 @@ namespace DI
 
 		virtual bool IsValid() const override
 		{
-			return bool(InterfaceDependency.GetObject());
+			return ::IsValid(InterfaceDependency.GetObject());
 		}
 
 		const FScriptInterface& Resolve() const
