@@ -29,7 +29,7 @@ namespace DI
 		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
 		 */
 		template <class T>
-		TEnableIf<!TIsConst<TDiContainer>::Value,
+		TEnableIf<!std::is_const<TDiContainer>::value,
 		TWeakFuture<EBindResult>>::Type
 		ThenBindInstance(DI::TBindingInstRef<T> Instance, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
 		{
@@ -43,7 +43,7 @@ namespace DI
 		 * If you need to resolve a binding by multiple types, you can bind it to all required types manually.
 		 */
 		template <class TBinding>
-		TEnableIf<!TIsConst<TDiContainer>::Value,
+		TEnableIf<!std::is_const<TDiContainer>::value,
 		TWeakFuture<EBindResult>>::Type
 		ThenBindNamedInstance(DI::TBindingInstRef<TBinding> Instance, const FName& InstanceName, EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
 		{
