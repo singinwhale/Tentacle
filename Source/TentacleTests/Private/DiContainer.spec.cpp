@@ -120,9 +120,11 @@ void DiContainerSpec::Define()
 			It("should resolve ustructs", [this]
 			{
 				TOptional<const FSimpleUStructService&> Resolved = DiContainer.Resolve().TryGet<FSimpleUStructService>();
+				TOptional<const FSimpleUStructService&> ResolvedAgain = DiContainer.Resolve().TryGet<FSimpleUStructService>();
 				if (TestTrue("Resolved.IsSet()", Resolved.IsSet()))
 				{
 					TestEqual("Resolved->A", Resolved->A, 20);
+					TestSame("same binding storage on repeated resolve", *Resolved, *ResolvedAgain);
 				}
 			});
 
@@ -147,9 +149,11 @@ void DiContainerSpec::Define()
 			It("should resolve named UStructs", [this]
 			{
 				TOptional<const FSimpleUStructService&> Resolved = DiContainer.Resolve().TryGetNamed<FSimpleUStructService>("SomeName");
+				TOptional<const FSimpleUStructService&> ResolvedAgain = DiContainer.Resolve().TryGetNamed<FSimpleUStructService>("SomeName");
 				if (TestTrue("Resolved.IsSet()", Resolved.IsSet()))
 				{
 					TestEqual("Resolved->A", Resolved->A, 22);
+					TestSame("same binding storage on repeated resolve", *Resolved, *ResolvedAgain);
 				}
 			});
 
@@ -290,6 +294,7 @@ void DiContainerSpec::Define()
 			{
 				DiContainer.Bind().Instance<USimpleUService>(NewObject<USimpleUService>());
 				DiContainer.Bind().Instance<FSimpleNativeService>(MakeShared<FSimpleNativeService>());
+				DiContainer.Bind().Instance<FSimpleUStructService>(FSimpleUStructService{42});
 			});
 			It("should inject into free functions", [this]
 			{
@@ -331,6 +336,20 @@ void DiContainerSpec::Define()
 					);
 				TestEqual("ExampleComponent->SimpleUService", ExampleComponent->SimpleUService, DiContainer.Resolve().TryGet<USimpleUService>());
 				TestEqual("ExampleComponent->ExtraString", ExampleComponent->ExtraString, ExtraString);
+			});
+
+			It("should inject ustructs by reference to binding storage", [this]
+			{
+				const FSimpleUStructService* InjectedPtr = nullptr;
+				DiContainer.Inject().IntoLambda([&](const FSimpleUStructService& Struct)
+				{
+					InjectedPtr = &Struct;
+				});
+				TOptional<const FSimpleUStructService&> Stored = DiContainer.Resolve().TryGet<FSimpleUStructService>();
+				if (TestNotNull("InjectedPtr", InjectedPtr) && TestTrue("Stored.IsSet()", Stored.IsSet()))
+				{
+					TestSame("injected pointer equals binding storage", *InjectedPtr, *Stored);
+				}
 			});
 		});
 
@@ -393,8 +412,7 @@ void DiContainerSpec::Define()
 							TestEqual("SimpleNativeService", SimpleNativeService, DiContainer.Resolve().TryGet<FSimpleNativeService>().ToSharedRef());
 							TestEqual("SimpleStruct", *SimpleStruct, *DiContainer.Resolve().TryGet<FSimpleUStructService>());
 							TestEqual("SimpleStruct->A", SimpleStruct->A, DiContainer.Resolve().TryGet<FSimpleUStructService>()->A);
-							// TODO: fix the issue that references are not passed through properly through WeakFutures.
-							//TestSame("&SimpleStruct", SimpleStruct, &*DiContainer.Resolve().TryGet<FSimpleUStructService>());
+							TestSame("&SimpleStruct", *SimpleStruct, *DiContainer.Resolve().TryGet<FSimpleUStructService>());
 						}
 						DoneDelegate.Execute();
 					}).OrElse([this, DoneDelegate]

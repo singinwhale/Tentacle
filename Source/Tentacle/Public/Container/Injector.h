@@ -576,8 +576,8 @@ namespace DI
 					{
 						FutureDetail::SetPromiseValueFromContinuationResult(RetValPromise,[&](auto&&... Bindings)
 						{
-							return (*ValidInstance.*MemberFunction)(Bindings...);
-						}, MoveTempIfPossible(ResolvedBindings)...);
+							return (*ValidInstance.*MemberFunction)(Forward<TArgs>(Bindings)...);
+						}, Forward<TArgs>(ResolvedBindings)...);
 					}
 					else
 					{
@@ -608,7 +608,7 @@ namespace DI
 					TSharedPtr<T> ValidInstance = WeakInstance.Pin();
 					if (ValidInstance && bAllIsResolvedAndValid)
 					{
-						OutPromise.EmplaceValue(((*ValidInstance).*MemberFunction)(MoveTempIfPossible(ResolvedTypes)...));
+						OutPromise.EmplaceValue(((*ValidInstance).*MemberFunction)(Forward<TArgs>(ResolvedTypes)...));
 					}
 					else
 					{
@@ -634,7 +634,7 @@ namespace DI
 					const bool bAllIsResolvedAndValid = (TIsBindingPtrValid<TArgs>::Check(ResolvedTypes) && ... && true);
 					if (bAllIsResolvedAndValid)
 					{
-						OutPromise.EmplaceValue((*StaticFunction)(MoveTempIfPossible(ResolvedTypes)...));
+						OutPromise.EmplaceValue((*StaticFunction)(Forward<TArgs>(ResolvedTypes)...));
 					}
 					else
 					{

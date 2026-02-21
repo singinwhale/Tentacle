@@ -337,15 +337,23 @@ namespace DI
 		return bIsValid;
 	}
 
+	template <class TResultTuple, class TSourceTuple, uint32... Indices>
+	TResultTuple MakeDerefedTuple(TSourceTuple& InstancePointers, TIntegerSequence<uint32, Indices...>)
+	{
+		return TResultTuple(ToRefType(InstancePointers.template Get<Indices>())...);
+	}
+
 	template <class... TBindingInstPtrs>
 	auto TryDerefAllInstances(TTuple<TBindingInstPtrs...> InstancePointers) // -> TOptional<TTuple<TBindingInstRef<T>...>>
 	{
-		using TOptionalResultType = TOptional<TTuple<TBindingInstRef<typename TBindingInstBaseType<TBindingInstPtrs>::Type>...>>;
+		using TResultTuple = TTuple<TBindingInstRef<typename TBindingInstBaseType<TBindingInstPtrs>::Type>...>;
+		using TOptionalResultType = TOptional<TResultTuple>;
 		if (AreBindingInstsValid(InstancePointers))
 		{
-			return TOptionalResultType(TransformTuple(InstancePointers, [](const auto& InstancePointer) {
-				return ToRefType(InstancePointer);
-			}));
+			// TransformTuple/MakeTuple decays reference types (const T& -> T), causing structs to be copied
+			// rather than forwarded by reference. Directly constructing TResultTuple with an index sequence
+			// preserves reference element types (TTuple<const T&>) and avoids the copy.
+			return TOptionalResultType(MakeDerefedTuple<TResultTuple>(InstancePointers, TMakeIntegerSequence<uint32, sizeof...(TBindingInstPtrs)>{}));
 		}
 		return TOptionalResultType();
 	}
