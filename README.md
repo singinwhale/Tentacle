@@ -1,3 +1,5 @@
+![Tentacle Logo](Resources/logo.png)
+
 # Tentacle
 
 Inversion of Control (Dependency Injection) framework for Unreal Engine roughly inspired by [Zenject](https://github.com/modesttree/Zenject)
