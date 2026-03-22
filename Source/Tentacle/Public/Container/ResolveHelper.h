@@ -1,14 +1,11 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Container/Binding.h"
 #include "WeakFuture.h"
-#include "DiContainerConcept.h"
 #include "ResolveErrorBehavior.h"
-#include "Tentacle.h"
-#include "Blueprint/BlueprintExceptionInfo.h"
 
 namespace DI
 {
@@ -59,7 +56,7 @@ namespace DI
 			FBindingId BindingId = FBindingId(FTypeId(StructType), BindingName);
 
 			static_assert(
-				TIsDerivedFrom<TBindingType<FHitResult>, DI::FRawDataBinding>::IsDerived,
+				TIsDerivedFrom<TBindingType<FInstancedStruct>, DI::FRawDataBinding>::IsDerived,
 				"This code assumes that UStruct bindings inherit from FRawDataBinding"
 			);
 			if (TSharedPtr<DI::FRawDataBinding> BindingInstance = StaticCastSharedPtr<DI::FRawDataBinding>(DiContainer.FindBinding(BindingId)))
@@ -267,11 +264,11 @@ namespace DI
 			}
 			else
 			{
-				auto Callback = [Promise = MoveTemp(Promise)](const DI::FBinding& BindingInstance) mutable
+				auto Callback = [PromiseCapture = MoveTemp(Promise)](const DI::FBinding& BindingInstance) mutable
 				{
 					const TBindingType<TInstanceType>& SpecificBinding = static_cast<const TBindingType<TInstanceType>&>(BindingInstance);
 					TBindingInstRef<TInstanceType> Resolved = SpecificBinding.Resolve();
-					Promise.EmplaceValue(Resolved);
+					PromiseCapture.EmplaceValue(Resolved);
 				};
 				if (WaitingObject)
 				{

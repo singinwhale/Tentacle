@@ -1,10 +1,10 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "ExampleComponent.h"
 
 #include "Container/ChainedDiContainer.h"
-#include "Contexts/DIContextInterface.h"
+#include "Contexts/DiContextInterface.h"
 #include "Mocks/SimpleService.h"
 
 

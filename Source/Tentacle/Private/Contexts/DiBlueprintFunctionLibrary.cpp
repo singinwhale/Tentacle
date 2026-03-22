@@ -1,12 +1,13 @@
-// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Contexts/DiBlueprintFunctionLibrary.h"
 
+#include "Tentacle.h"
 #include "Blueprint/BlueprintExceptionInfo.h"
 #include "Container/ChainedDiContainer.h"
 #include "Contexts/AutoInjectableInterface.h"
-#include "Contexts/DIContextInterface.h"
+#include "Contexts/DiContextInterface.h"
 
 
 TScriptInterface<IDiContextInterface> UDiBlueprintFunctionLibrary::FindDiContextForObject(UObject* ContextObject)

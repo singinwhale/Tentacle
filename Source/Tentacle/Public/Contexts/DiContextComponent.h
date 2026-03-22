@@ -1,10 +1,10 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "DiContainerObject.h"
-#include "DIContextInterface.h"
+#include "DiContextInterface.h"
 #include "TentacleSettings.h"
 #include "Components/ActorComponent.h"
 #include "Container/ChainedDiContainer.h"

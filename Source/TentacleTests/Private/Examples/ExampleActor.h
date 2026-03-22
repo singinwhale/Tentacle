@@ -1,11 +1,11 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Container/ChainedDiContainer.h"
 #include "Contexts/AutoInjector.h"
-#include "Contexts/DIContextInterface.h"
+#include "Contexts/DiContextInterface.h"
 #include "GameFramework/Actor.h"
 #include "ExampleActor.generated.h"
 

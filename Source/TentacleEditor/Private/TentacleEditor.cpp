@@ -1,4 +1,6 @@
-﻿#include "TentacleEditor.h"
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+
+#include "TentacleEditor.h"
 
 #define LOCTEXT_NAMESPACE "FTentacleEditorModule"
 

@@ -1,10 +1,13 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "ExamplePlayerController.h"
 
 #include "Contexts/DiLocalPlayerSubsystem.h"
-#include "Contexts/DiWorldSubsystem.h"
+#include "Contexts/DiContextInterface.h"
+#include "Engine/LocalPlayer.h"
+#include "GameFramework/Pawn.h"
+#include "Engine/Engine.h"
 
 AExamplePlayerController::AExamplePlayerController()
 {
@@ -24,7 +27,7 @@ void AExamplePlayerController::PreInitializeComponents()
 
 void AExamplePlayerController::ReceivedPlayer()
 {
-	if (class ULocalPlayer* LocalPlayer = GetLocalPlayer())
+	if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
 	{
 		if (TScriptInterface<IDiContextInterface> LocalPlayerDiContext = DI::TryFindDiContext(LocalPlayer))
 		{
@@ -64,7 +67,7 @@ void AExamplePlayerController::SetPawn(APawn* InPawn)
 
 void AExamplePlayerController::TryRemoveDiChildFromLocalPlayerContainer()
 {
-	if (class ULocalPlayer* LocalPlayer = GetLocalPlayer())
+	if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
 	{
 		if (TScriptInterface<IDiContextInterface> LocalPlayerDiContext = DI::TryFindDiContext(LocalPlayer))
 		{

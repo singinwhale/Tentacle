@@ -1,4 +1,4 @@
-// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 using UnrealBuildTool;
 
@@ -13,9 +13,10 @@ public class Tentacle : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
+				"Engine",
 				"DeveloperSettings",
 				"AsyncStreams",
-				"Engine",
 			}
 		);
 

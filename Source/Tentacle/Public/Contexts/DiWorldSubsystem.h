@@ -1,10 +1,10 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Container/ChainedDiContainer.h"
-#include "DIContextInterface.h"
+#include "DiContextInterface.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "DiWorldSubsystem.generated.h"
 

@@ -1,4 +1,6 @@
-﻿using UnrealBuildTool;
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+
+using UnrealBuildTool;
 
 public class TentacleEditor : ModuleRules
 {

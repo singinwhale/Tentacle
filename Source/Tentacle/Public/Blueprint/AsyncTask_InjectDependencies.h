@@ -1,9 +1,9 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Contexts/DIContextInterface.h"
+#include "Contexts/DiContextInterface.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
 #include "UObject/Object.h"
 #include "AsyncTask_InjectDependencies.generated.h"

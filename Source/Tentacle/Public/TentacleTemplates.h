@@ -1,9 +1,10 @@
-// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #pragma once
 
 #include <type_traits>
+#include "UObject/WeakInterfacePtr.h"
 
 namespace DI
 {

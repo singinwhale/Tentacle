@@ -1,13 +1,16 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DIContextInterface.h"
+#include "AutoInjectableInterface.h"
+#include "DiContextInterface.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Kismet/BlueprintInstancedStructLibrary.h"
+#include "Templates/SubclassOf.h"
 
 #include "DiBlueprintFunctionLibrary.generated.h"
+
 
 /**
  * Exposes UObject related DI Functions to blueprint.

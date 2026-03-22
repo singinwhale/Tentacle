@@ -1,4 +1,6 @@
-﻿#include "WeakFuture.h"
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+
+#include "WeakFuture.h"
 #include "Misc/AutomationTest.h"
 
 BEGIN_DEFINE_SPEC(WeakFutureSetSpec, "Tentacle.AsyncStreams.WeakFutureSet",

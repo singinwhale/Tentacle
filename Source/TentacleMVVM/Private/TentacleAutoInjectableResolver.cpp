@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "TentacleAutoInjectableResolver.h"
@@ -6,7 +6,7 @@
 #include "TentacleMVVM.h"
 #include "Contexts/AutoInjectableInterface.h"
 #include "Blueprint/UserWidget.h"
-#include "Contexts/DIContextInterface.h"
+#include "Contexts/DiContextInterface.h"
 
 UObject* UTentacleAutoInjectableResolver::CreateInstance(const UClass* ExpectedType, const UUserWidget* UserWidget, const UMVVMView* View) const
 {

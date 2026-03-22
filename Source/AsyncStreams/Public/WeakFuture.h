@@ -1,4 +1,4 @@
-// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
@@ -1730,7 +1730,7 @@ TWeakFutureSet<ValTypes...> AwaitAllInTuple(TTuple<TWeakFuture<ValTypes>...> Fut
 	TWeakFutureSet<ValTypes...> FutureSet = Promise.GetWeakFutureSet();
 	auto TupleValidFunc = AwaitAllWeakPrivate::MakeTupleValidFunction(BufferState, TMakeIntegerSequence<int32, sizeof...(ValTypes)>());
 
-	auto PromiseFulfillableFunc = [Promise = MoveTemp(Promise), TupleValidFunc](TSharedRef<TTuple<TOptional<TOptional<ValTypes>>...>> BufferState) mutable
+	auto PromiseFulfillableFunc = [PromiseCapture = MoveTemp(Promise), TupleValidFunc](TSharedRef<TTuple<TOptional<TOptional<ValTypes>>...>> BufferState) mutable
 	{
 		if (TupleValidFunc(BufferState))
 		{
@@ -1739,7 +1739,7 @@ TWeakFutureSet<ValTypes...> AwaitAllInTuple(TTuple<TWeakFuture<ValTypes>...> Fut
 				checkf(Result.IsSet(), TEXT("TupleValidFunc was supposed to validate that all results are in!"));
 				return *Result;
 			});
-			Promise.EmplaceValue(MoveTemp(FinishedResults));
+			PromiseCapture.EmplaceValue(MoveTemp(FinishedResults));
 		}
 	};
 
@@ -1799,15 +1799,15 @@ auto TWeakFutureValues<ResultTypes...>::AndThenApply(Func Continuation)
 	using FContinuationReturnType = FContinuationTraits::ResultType;
 	auto [Promise, Future] = MakeWeakPromisePair<FContinuationReturnType>();
 	this->Then(
-		[Continuation = MoveTemp(Continuation), Promise=MoveTemp(Promise)](TWeakFuture<TTuple<ResultTypes...>> Self) mutable
+		[Continuation = MoveTemp(Continuation), PromiseCapture=MoveTemp(Promise)](TWeakFuture<TTuple<ResultTypes...>> Self) mutable
 		{
 			if (!Self.WasCanceled())
 			{
-				FutureDetail::SetPromiseValueFromContinuationApplyResult(Promise, Continuation, MoveTempIfPossible(*Self.Consume()));
+				FutureDetail::SetPromiseValueFromContinuationApplyResult(PromiseCapture, Continuation, MoveTempIfPossible(*Self.Consume()));
 			}
 			else
 			{
-				Promise.Cancel();
+				PromiseCapture.Cancel();
 			}
 		}
 	);
@@ -1903,7 +1903,7 @@ auto TWeakFutureSet<ResultTypes...>::AndThenExpand(Func Continuation)
 	using TFuncReturnType = FunctionTraits::TFunctionTraits<Func>::ResultType;
 	auto [Promise, Future] = MakeWeakPromisePair<TFuncReturnType>();
 	this->AndThenApply(
-		[Continuation = MoveTemp(Continuation), Promise=MoveTemp(Promise)](TOptional<ResultTypes>&&... ResolvedFutureResults) mutable
+		[Continuation = MoveTemp(Continuation), PromiseCapture=MoveTemp(Promise)](TOptional<ResultTypes>&&... ResolvedFutureResults) mutable
 		{
 			const bool bAllValid = (ResolvedFutureResults.IsSet() && ... && true);
 			if (bAllValid)
@@ -1911,19 +1911,19 @@ auto TWeakFutureSet<ResultTypes...>::AndThenExpand(Func Continuation)
 				constexpr bool bAllResultTypesAreVoid = (std::is_same_v<ResultTypes, void> && ...);
 				if constexpr (bAllResultTypesAreVoid)
 				{
-					FutureDetail::SetPromiseValueFromContinuationResult(Promise, Continuation);
+					FutureDetail::SetPromiseValueFromContinuationResult(PromiseCapture, Continuation);
 				}
 				else
 				{
 					AndThenExpandDetail::ApplyNonVoid([&](/*TOptional<NonVoidResultTypes>*/auto... OptionalResults){
-						FutureDetail::SetPromiseValueFromContinuationResult(Promise, MoveTemp(Continuation), MoveTempIfPossible(*OptionalResults)...);
+						FutureDetail::SetPromiseValueFromContinuationResult(PromiseCapture, MoveTemp(Continuation), MoveTempIfPossible(*OptionalResults)...);
 					}, MoveTempIfPossible(ResolvedFutureResults)...);
 				}
 
 			}
 			else
 			{
-				Promise.Cancel();
+				PromiseCapture.Cancel();
 			}
 		}
 	);

@@ -1,11 +1,11 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Contexts/DiGameInstanceSubsystem.h"
 
 #include "TentacleSettings.h"
 #include "Contexts/DiEngineSubsystem.h"
-#include "Contexts/DiWorldSubsystem.h"
+#include "Engine/Engine.h"
 
 void UDiGameInstanceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {

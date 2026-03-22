@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
@@ -8,7 +8,7 @@
 #include "Container/Injector.h"
 #include "Container/ResolveHelper.h"
 #include "UObject/Interface.h"
-#include "DIContextInterface.generated.h"
+#include "DiContextInterface.generated.h"
 
 
 

@@ -1,15 +1,15 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Container/ChainedDiContainer.h"
 #include "Container/DiContainer.h"
 #include "Container/ForkingDiContainer.h"
-#include "Examples/ExampleComponent.h"
-#include "Examples/ExampleNative.h"
-#include "Misc/TypeContainer.h"
 #include "Mocks/SimpleService.h"
+#include "Misc/AutomationTest.h"
 
-BEGIN_DEFINE_SPEC(ConnectedDiContainerSpec, "Tentacle.ConnectedDiContainer",
+#if WITH_AUTOMATION_WORKER
+
+BEGIN_DEFINE_SPEC(FConnectedDiContainerSpec, "Tentacle.ConnectedDiContainer",
                   EAutomationTestFlags::EngineFilter | EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProgramContext)
 
 	TSharedPtr<DI::FChainedDiContainer> ChildContainer;
@@ -17,9 +17,9 @@ BEGIN_DEFINE_SPEC(ConnectedDiContainerSpec, "Tentacle.ConnectedDiContainer",
 	TSharedPtr<DI::FChainedDiContainer> OtherParentContainer;
 	TSharedPtr<DI::FForkingDiContainer> ForkingDiContainer;
 	TObjectPtr<USimpleUService> Service;
-END_DEFINE_SPEC(ConnectedDiContainerSpec)
+END_DEFINE_SPEC(FConnectedDiContainerSpec)
 
-void ConnectedDiContainerSpec::Define()
+void FConnectedDiContainerSpec::Define()
 {
 	BeforeEach([this]
 	{
@@ -77,3 +77,5 @@ void ConnectedDiContainerSpec::Define()
 		});
 	});
 }
+
+#endif

@@ -1,4 +1,4 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
@@ -6,7 +6,7 @@
 #include "Container/ChainedDiContainer.h"
 #include "Container/ForkingDiContainer.h"
 #include "Contexts/DiContextComponent.h"
-#include "Contexts/DIContextInterface.h"
+#include "Contexts/DiContextInterface.h"
 #include "GameFramework/PlayerController.h"
 #include "ExamplePlayerController.generated.h"
 

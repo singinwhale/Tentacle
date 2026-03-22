@@ -1,15 +1,16 @@
-﻿// Copyright singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
+#include "Contexts/DiContextInterface.h"
 #include "TentacleSettings.h"
-#include "Components/PanelWidget.h"
 #include "Components/Widget.h"
 #include "Contexts/DiContextComponent.h"
-#include "Contexts/DIContextInterface.h"
 #include "Contexts/DiEngineSubsystem.h"
 #include "Contexts/DiGameInstanceSubsystem.h"
 #include "Contexts/DiLocalPlayerSubsystem.h"
 #include "Contexts/DiWorldSubsystem.h"
+#include "Engine/World.h"
+#include "Engine/Engine.h"
 
 TScriptInterface<const IDiContextInterface> DI::TryFindDiContext(const UObject* StartObject)
 {
