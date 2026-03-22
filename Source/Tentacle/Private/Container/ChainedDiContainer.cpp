@@ -1,7 +1,8 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Container/ChainedDiContainer.h"
+#include "Tentacle.h"
 
 void DI::FChainedDiContainer::SetParentContainer(TSharedPtr<FConnectedDiContainer> DiContainer)
 {

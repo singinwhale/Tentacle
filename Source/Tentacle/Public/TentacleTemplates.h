@@ -1,45 +1,71 @@
-// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #pragma once
 
 #include <type_traits>
 #include "UObject/WeakInterfacePtr.h"
+#include "Engine/GameInstance.h"
+#include "Templates/Casts.h"
+#include "UObject/Interface.h"
 
 namespace DI
 {
-	template <bool Predicate, typename TypeA = void, typename TypeB = void>
-	struct TConditional;
+#ifdef __JETBRAINS_IDE__
+#define TENTACLE_REQUIRES_CUSTOM_TIsInterface
+#else
+#ifdef __RESHARPER__
+#define TENTACLE_REQUIRES_CUSTOM_TIsInterface
+#endif
+#endif
 
-	template <typename TypeA, typename TypeB>
-	struct TConditional<true, TypeA, TypeB>
+#ifdef TENTACLE_REQUIRES_CUSTOM_TIsInterface
+	/**
+	 * Metafunction which detects whether or not a class is an IInterface.  Rules:
+	 *
+	 * 1. A UObject is not an IInterface.
+	 * 2. A type without a UClassType typedef member is not an IInterface.
+	 * 3. A type whose UClassType is derived from UInterface.
+	 *
+	 * Otherwise, assume it's an IInterface.
+	 *
+	 * This shadows the implementation in Templates/Casts.h and
+	 * is required for some IDEs because they can't resolve the StaticClassFlags at lint time.
+	 */
+	template <typename T, bool bIsAUObject_IMPL = std::is_convertible_v<T*, const volatile UObject*>>
+	struct TIsIInterface
 	{
-		using Type = TypeA;
+		enum { Value = false };
 	};
 
-	template <typename TypeA, typename TypeB>
-	struct TConditional<false, TypeA, TypeB>
+	template <typename T>
+	struct TIsIInterface<T, false>
 	{
-		using Type = TypeB;
-	};
+		template <typename U> static char (&Resolve(typename U::UClassType*))[(std::derived_from<typename U::UClassType, UInterface>) ? 2 : 1];
+		template <typename U> static char (&Resolve(...))[1];
 
+		enum { Value = sizeof(Resolve<T>(0)) - 1 };
+	};
+#endif
+
+#undef TENTACLE_REQUIRES_CUSTOM_TIsInterface
 
 	template <class T>
-	typename TEnableIf<TIsIInterface<T>::Value, UClass*>::Type
+	TEnableIf<TIsIInterface<T>::Value, UClass*>::Type
 	GetStaticClass()
 	{
 		return T::UClassType::StaticClass();
 	}
 
 	template <class T>
-	typename TEnableIf<TIsDerivedFrom<T, UObject>::Value, UClass*>::Type
+	TEnableIf<TIsDerivedFrom<T, UObject>::Value, UClass*>::Type
 	GetStaticClass()
 	{
 		return T::StaticClass();
 	}
 
 	template <class T>
-	typename TEnableIf<TModels<CStaticStructProvider, T>::Value, UScriptStruct*>::Type
+	TEnableIf<TModels<CStaticStructProvider, T>::Value, UScriptStruct*>::Type
 	GetStaticClass()
 	{
 		return T::StaticStruct();
@@ -70,14 +96,14 @@ namespace DI
 	}
 
 	template <class T, typename TUObjectType, typename TUInterfaceType, typename TUStructType, typename TNativeType>
-	using TBindingInstanceTypeSwitch = typename TConditional<
-		THasUStruct<typename TDecay<T>::Type>::Value,
-		typename TConditional<THasUClass<typename TDecay<T>::Type>::Value,
-		                      typename TConditional<TIsIInterface<typename TDecay<T>::Type>::Value,
-		                                            TUInterfaceType,
-		                                            TUObjectType>::Type,
-		                      TUStructType>::Type,
-		TNativeType>::Type;
+	using TBindingInstanceTypeSwitch = std::conditional_t<
+		THasUStruct<std::decay_t<T>>::Value,
+		std::conditional_t<THasUClass<std::decay_t<T>>::Value,
+		                   std::conditional_t<TIsIInterface<std::decay_t<T>>::Value,
+		                                      TUInterfaceType,
+		                                      TUObjectType>,
+		                   TUStructType>,
+		TNativeType>;
 
 	// Binding Instance Reference Type (Non-nullable)
 	template <class T>
@@ -97,7 +123,7 @@ namespace DI
 		/* TUStructType */ TOptional<const T&>,
 		/* TNativeType */ TSharedPtr<T>>;
 
-	
+
 	// Binding Instance Weak Ptr
 	template <class T>
 	using TBindingInstWeakPtr = TBindingInstanceTypeSwitch<
@@ -106,7 +132,6 @@ namespace DI
 		/* TUInterfaceType */ TWeakInterfacePtr<T>,
 		/* TUStructType */ T,
 		/* TNativeType */ TWeakPtr<T>>;
-
 
 
 	/* Gets the base/inner/raw type from a TBindingInstPtr or TBindingInstRef */
@@ -119,19 +144,19 @@ namespace DI
 	template <class T>
 	struct TBindingInstBaseType<const T&>
 	{
-		using Type = typename TBindingInstBaseType<typename TDecay<T>::Type>::Type;
+		using Type = TBindingInstBaseType<typename TDecay<T>::Type>::Type;
 	};
 
 	template <class T>
 	struct TBindingInstBaseType<T&>
 	{
-		using Type = typename TBindingInstBaseType<typename TDecay<T>::Type>::Type;
+		using Type = TBindingInstBaseType<typename TDecay<T>::Type>::Type;
 	};
 
 	template <class T>
 	struct TBindingInstBaseType<T*>
 	{
-		using Type = typename TBindingInstBaseType<T>::Type;
+		using Type = TBindingInstBaseType<T>::Type;
 	};
 
 	template <class T>
@@ -182,7 +207,7 @@ namespace DI
 		using Type = T;
 	};
 
-	template<typename T>
+	template <typename T>
 	concept CHasType = requires
 	{
 		typename T::Type;
@@ -253,12 +278,13 @@ namespace DI
 	{
 		return WeakPtr.IsValid() ? WeakPtr.ToScriptInterface() : TOptional<T>{};
 	}
+
 	template <class T>
 	TOptional<T> ResolveWeakBindingInstPtr(const T& WeakPtr)
 	{
 		return WeakPtr;
 	}
-	
+
 	template <class T>
 	TOptional<TSharedRef<T>> ResolveWeakBindingInstPtr(const TWeakPtr<T>& WeakPtr)
 	{
@@ -271,16 +297,19 @@ namespace DI
 	{
 		return MakeWeakObjectPtr(Instance);
 	}
+
 	template <class T>
 	TWeakInterfacePtr<T> MakeWeakBindingInstPtr(TScriptInterface<T> Instance)
 	{
 		return TWeakInterfacePtr<T>(Instance);
 	}
+
 	template <class T>
 	T MakeWeakBindingInstPtr(T Instance)
 	{
 		return Instance;
-	}	
+	}
+
 	template <class T>
 	TWeakPtr<T> MakeWeakBindingInstPtr(TSharedRef<T> Instance)
 	{
@@ -288,7 +317,7 @@ namespace DI
 	}
 
 	/**
-	 * Creates a TTuple<T, T, ..., T> of the requested length with every element initialised to Value.
+	 * Creates a TTuple<T, T, ..., T> of the requested length with every element initialized to Value.
 	 * Example:
 	 *   MakeUniformTuple<FName, 3>(NAME_None);   // -> TTuple<FName, FName, FName> { NAME_None, NAME_None, NAME_None }
 	 */
@@ -305,23 +334,23 @@ namespace DI
 		return MakeUniformTupleImpl<T>(Value, TMakeIntegerSequence<uint32, N>{});
 	}
 
-	template<class T>
+	template <class T>
 	using TVoid = decltype(static_cast<void>(DeclVal<T>()));
 
 
-	template<class T>
+	template <class T>
 	concept CConvertibleToBool = requires
 	{
 		static_cast<bool>(DeclVal<T>());
 	};
-	
-	template<class T>
+
+	template <class T>
 	struct TIsBindingPtrValid
 	{
 		static constexpr bool Check(const T& Value) { return true; }
 	};
-	
-	template<CConvertibleToBool T>
+
+	template <CConvertibleToBool T>
 	struct TIsBindingPtrValid<T>
 	{
 		static bool Check(const T& Value) { return static_cast<bool>(Value); }
@@ -358,6 +387,4 @@ namespace DI
 		}
 		return TOptionalResultType();
 	}
-	
-	
 }

@@ -1,4 +1,4 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Container/ChainedDiContainer.h"
@@ -9,8 +9,7 @@
 
 #if WITH_AUTOMATION_WORKER
 
-BEGIN_DEFINE_SPEC(FConnectedDiContainerSpec, "Tentacle.ConnectedDiContainer",
-                  EAutomationTestFlags::EngineFilter | EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProgramContext)
+BEGIN_DEFINE_SPEC(FConnectedDiContainerSpec, "Tentacle.ConnectedDiContainer", EAutomationTestFlags::EngineFilter | EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProgramContext)
 
 	TSharedPtr<DI::FChainedDiContainer> ChildContainer;
 	TSharedPtr<DI::FChainedDiContainer> ParentContainer;

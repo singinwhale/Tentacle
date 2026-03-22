@@ -1,9 +1,10 @@
-// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "TentacleTemplates.h"
 #include "CoreMinimal.h"
 #include "Mocks/SimpleService.h"
+#include "UObject/Interface.h"
 
 namespace DI
 {
@@ -22,6 +23,8 @@ namespace DI
 		static_assert(!THasUClass<FSimpleUStructService>::Value, "UStruct should not have a UClass");
 		static_assert(THasUStruct<FSimpleUStructService>::Value, "UStruct should have a UStruct");
 		static_assert(!TModels<CNativeMemberTypeIdProvider, FSimpleUStructService>::Value, "UStructs should not provide a native member type");
+
+		static_assert(TIsIInterface<ISimpleInterface>::Value, "Interfaces should be interfaces");
 
 		// non-nullable types
 		static_assert(std::is_same_v<TBindingInstRef<USimpleUService>, TObjectPtr<USimpleUService>>, "UObjects should be referenced as reference");

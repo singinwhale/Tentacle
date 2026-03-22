@@ -1,10 +1,11 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #include "Container/ResolveErrorBehavior.h"
 
 #include "Tentacle.h"
 #include "Blueprint/BlueprintExceptionInfo.h"
 #include "Container/BindingId.h"
+#include "UObject/Stack.h"
 
 void DI::HandleResolveError(const FBindingId& BindingId, EResolveErrorBehavior ErrorBehavior)
 {

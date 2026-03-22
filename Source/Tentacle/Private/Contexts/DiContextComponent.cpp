@@ -1,9 +1,10 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Contexts/DiContextComponent.h"
 
 #include "Contexts/DiWorldSubsystem.h"
+#include "GameFramework/Actor.h"
 
 UDiContextComponent::UDiContextComponent()
 {
@@ -49,4 +50,3 @@ void UDiContextComponent::AddReferencedObjects(UObject* Self, FReferenceCollecto
 	Super::AddReferencedObjects(Self, Collector);
 	static_cast<UDiContextComponent*>(Self)->DiContainer->AddReferencedObjects(Collector);
 }
-

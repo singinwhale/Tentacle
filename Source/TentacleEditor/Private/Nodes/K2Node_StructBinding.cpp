@@ -1,10 +1,10 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 #include "Nodes/K2Node_StructBinding.h"
 
 #include "BlueprintActionDatabaseRegistrar.h"
 #include "BlueprintNodeSpawner.h"
 #include "Contexts/DiBlueprintFunctionLibrary.h"
-#include "Kismet/BlueprintInstancedStructLibrary.h"
+#include "Editor/BlueprintGraph/Classes/EdGraphSchema_K2.h"
 
 
 #define LOCTEXT_NAMESPACE "TentacleEditor"
@@ -22,7 +22,7 @@ void UK2Node_StructBinding::GetMenuActions(FBlueprintActionDatabaseRegistrar& Ac
 			check(Function);
 			Node->SetFromFunction(Function);
 		};
-		
+
 		// TryResolveStruct()
 		UBlueprintNodeSpawner* TryResolveStructSpawner = UBlueprintNodeSpawner::Create(GetClass());
 		check(TryResolveStructSpawner != nullptr);

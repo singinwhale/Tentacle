@@ -1,10 +1,11 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Contexts/DiLocalPlayerSubsystem.h"
 
 #include "TentacleSettings.h"
 #include "Contexts/DiGameInstanceSubsystem.h"
+#include "Engine/LocalPlayer.h"
 
 bool UDiLocalPlayerSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {

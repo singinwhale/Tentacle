@@ -1,4 +1,4 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #include "Nodes/K2Node_ResolveMany.h"
 
@@ -9,6 +9,8 @@
 #include "KismetCompiler.h"
 #include "Contexts/DiBlueprintFunctionLibrary.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "ToolMenu.h"
+#include "ScopedTransaction.h"
 
 UScriptStruct* const UK2Node_ResolveMany::DefaultStructClass = nullptr;
 UClass* const UK2Node_ResolveMany::DefaultObjectClass = UObject::StaticClass();

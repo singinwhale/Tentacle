@@ -1,10 +1,13 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Contexts/DiWorldSubsystem.h"
 
 #include "TentacleSettings.h"
 #include "Contexts/DiGameInstanceSubsystem.h"
+#include "Engine/World.h"
+#include "Engine/GameInstance.h"
+#include "Engine/Engine.h"
 
 UDiWorldSubsystem* UDiWorldSubsystem::TryGet(const UObject* WorldContext)
 {

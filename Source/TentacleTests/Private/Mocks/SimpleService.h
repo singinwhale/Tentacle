@@ -1,10 +1,11 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "TypeId.h"
 #include "UObject/Object.h"
+#include "UObject/Interface.h"
 #include "SimpleService.generated.h"
 
 UCLASS()

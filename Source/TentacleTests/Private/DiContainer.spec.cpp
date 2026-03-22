@@ -1,19 +1,19 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 
 #include "Container/DiContainer.h"
 #include "Examples/ExampleComponent.h"
 #include "Examples/ExampleNative.h"
-#include "Misc/TypeContainer.h"
 #include "Mocks/SimpleService.h"
+#include "Misc/AutomationTest.h"
 
-BEGIN_DEFINE_SPEC(DiContainerSpec, "Tentacle.DiContainer",
+BEGIN_DEFINE_SPEC(FDiContainerSpec, "Tentacle.DiContainer",
                   EAutomationTestFlags::EngineFilter | EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProgramContext)
 
 	DI::FDiContainer DiContainer;
-END_DEFINE_SPEC(DiContainerSpec)
+END_DEFINE_SPEC(FDiContainerSpec)
 
-void DiContainerSpec::Define()
+void FDiContainerSpec::Define()
 {
 	BeforeEach([this]
 	{

@@ -1,8 +1,9 @@
-﻿// Copyright 2025 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
+﻿// Copyright 2026 singinwhale https://www.singinwhale.com and contributors. Distributed under the MIT license.
 
 #pragma once
 
 #include "CoreMinimal.h"
+#include "K2Node.h"
 #include "K2Node_AddPinInterface.h"
 #include "UObject/Object.h"
 #include "K2Node_ResolveMany.generated.h"
