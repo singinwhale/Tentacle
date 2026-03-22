@@ -46,6 +46,7 @@ EXCLUDE_FILES = {
     "Resources/logo.png",
     "Resources/logo.svg",
     "Resources/logo512.png",
+    "LICENSE",
     # This script itself
     "make_fab_archives.py",
 }
