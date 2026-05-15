@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
-	"Version": 1,
-	"VersionName": "1.0",
+	"Version": 2,
+	"VersionName": "1.0.1",
 	"FriendlyName": "Tentacle",
 	"Description": "Inversion of Control (Dependency Injection) framework for Unreal Engine",
 	"Category": "Other",
