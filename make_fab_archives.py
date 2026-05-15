@@ -27,7 +27,7 @@ PLUGIN_ROOT = pathlib.Path(__file__).parent.resolve()
 UPLUGIN_FILE = PLUGIN_ROOT / "Tentacle.uplugin"
 OUTPUT_DIR = PLUGIN_ROOT  # zips are written next to this script
 
-ENGINE_VERSIONS = ["5.5", "5.6", "5.7"]
+ENGINE_VERSIONS = ["5.5", "5.6", "5.7", "5.8"]
 
 SUPPORTED_PLATFORMS = ["Win64", "Linux"]
 
@@ -63,7 +63,8 @@ def collect_files() -> list[pathlib.Path]:
         # Prune excluded directories in-place so os.walk won't descend into them.
         # For the root level we match by name; for deeper levels we match the top segment.
         dirnames[:] = [
-            d for d in dirnames
+            d
+            for d in dirnames
             if not (rel_dir == "." and d in EXCLUDE_DIRS)
             and not (rel_dir != "." and rel_dir.split("/")[0] in EXCLUDE_DIRS)
         ]
