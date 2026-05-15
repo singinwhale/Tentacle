@@ -177,7 +177,7 @@ FORCEINLINE uint32 GetTypeHash(const DI::FTypeId& TypeId)
 
 #define DI_TYPEID_BODY(TypeName)\
 	static_assert(sizeof(TypeName) != 0, #TypeName " does not name a type.");\
-	static const TCHAR* TypeName ## TypeName = TEXT(PREPROCESSOR_TO_STRING(TypeName)); \
+	static const TCHAR* TypeName ## TypeName = TEXT(UE_STRINGIZE(TypeName)); \
 	static const ::DI::FTypeId TypeName ## TypeId = ::DI::Private::MakeNativeTypeId(TypeName ## TypeName);\
 	return TypeName ## TypeId;
 
