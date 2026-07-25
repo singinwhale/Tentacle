@@ -256,41 +256,41 @@ namespace DI
 			EResolveErrorBehavior ErrorBehavior = GDefaultResolveErrorBehavior) const
 		{
 			FBindingId BindingId = MakeBindingId<TInstanceType>(BindingName);
-			auto [Promise, Future] = MakeWeakPromisePair<TBindingInstRef<TInstanceType>>();
-			TBindingInstPtr<TInstanceType> MaybeInstance = this->Get<TInstanceType>(BindingId, EResolveErrorBehavior::ReturnNull);
-			if (MaybeInstance)
+			TWeakFuture<TBindingInstRef<TInstanceType>> MaybeInstanceFuture = this->AsyncResolve<TInstanceType>(BindingId, EResolveErrorBehavior::ReturnNull);
+			if (MaybeInstanceFuture.IsValid())
 			{
-				Promise.EmplaceValue(ToRefType(MaybeInstance));
+				return MaybeInstanceFuture;
+			}
+
+			auto [Promise, Future] = MakeWeakPromisePair<TBindingInstRef<TInstanceType>>();
+			auto Callback = [PromiseCapture = MoveTemp(Promise)](const DI::FBinding& BindingInstance) mutable
+			{
+				const TBindingType<TInstanceType>& SpecificBinding = static_cast<const TBindingType<TInstanceType>&>(BindingInstance);
+				SpecificBinding.Resolve().Next([PromiseCapture2 = MoveTemp(PromiseCapture)](TOptional<TBindingInstRef<TInstanceType>> Instance) mutable
+				{
+					if (Instance.IsSet())
+					{
+						PromiseCapture2.EmplaceValue(Instance.GetValue());
+					}
+					else
+					{
+						PromiseCapture2.Cancel();
+					}
+				});
+			};
+			if (WaitingObject)
+			{
+				DiContainer.Subscribe(BindingId).AddWeakLambda(WaitingObject, Callback);
 			}
 			else
 			{
-				auto Callback = [PromiseCapture = MoveTemp(Promise)](const DI::FBinding& BindingInstance) mutable
-				{
-					const TBindingType<TInstanceType>& SpecificBinding = static_cast<const TBindingType<TInstanceType>&>(BindingInstance);
-					TBindingInstRef<TInstanceType> Resolved = SpecificBinding.Resolve();
-					PromiseCapture.EmplaceValue(Resolved);
-				};
-				if (WaitingObject)
-				{
-					DiContainer.Subscribe(BindingId).AddWeakLambda(WaitingObject, Callback);
-				}
-				else
-				{
-					DiContainer.Subscribe(BindingId).AddLambda(Callback);
-				}
+				DiContainer.Subscribe(BindingId).AddLambda(Callback);
 			}
-			auto [NextPromise, NextFuture] = MakeWeakPromisePair<TBindingInstRef<TInstanceType>>();
-			Future.Then([BindingId, ErrorBehavior, NextPromise](TWeakFuture<TBindingInstRef<TInstanceType>> FutureInstance) mutable
+
+			return Future.OnCanceled([BindingId, ErrorBehavior]()
 			{
-				if (FutureInstance.WasCanceled())
-				{
-					HandleResolveError(BindingId, ErrorBehavior);
-					NextPromise.Cancel();
-					return;
-				}
-				NextPromise.EmplaceValue(*FutureInstance.Consume());
+				HandleResolveError(BindingId, ErrorBehavior);
 			});
-			return MoveTemp(NextFuture);
 		}
 
 	private:
@@ -302,9 +302,30 @@ namespace DI
 		{
 			if (TSharedPtr<DI::FBinding> BindingInstance = DiContainer.FindBinding(BindingId))
 			{
-				return StaticCastSharedPtr<DI::TBindingType<T>>(BindingInstance)->Resolve();
+				TWeakFuture<DI::TBindingInstRef<T>> Resolved = StaticCastSharedPtr<DI::TBindingType<T>>(BindingInstance)->Resolve();
+				if (Resolved.WasSuccessful())
+				{
+					return Resolved.TryGetMutable().GetValue();
+				}
+				return {};
 			}
 			HandleResolveError(BindingId, ErrorBehavior);
+			return {};
+		}
+
+		/**
+		 * Private so no one passes in a binding Id that does not match T
+		 */
+		template <class T>
+		TWeakFuture<DI::TBindingInstRef<T>> AsyncResolve(const FBindingId& BindingId, EResolveErrorBehavior ErrorBehavior) const
+		{
+			if (TSharedPtr<DI::FBinding> BindingInstance = DiContainer.FindBinding(BindingId))
+			{
+				return StaticCastSharedPtr<DI::TBindingType<T>>(BindingInstance)->Resolve().OnCanceled([BindingId, ErrorBehavior]()
+				{
+					HandleResolveError(BindingId, ErrorBehavior);
+				});
+			}
 			return {};
 		}
 

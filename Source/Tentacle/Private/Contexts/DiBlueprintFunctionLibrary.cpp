@@ -286,7 +286,13 @@ DEFINE_FUNCTION(UDiBlueprintFunctionLibrary::execTryResolveInterface)
 				UE_LOG(LogDependencyInjection, Error, TEXT("Failed to resolve Interface Binding %s"), *BindingId.ToString());
 			}
 			TSharedPtr<DI::FUInterfaceBinding> InterfaceBinding = StaticCastSharedPtr<DI::FUInterfaceBinding>(Binding);
-			(*static_cast<UObject**>(RESULT_PARAM)) = InterfaceBinding ? InterfaceBinding->Resolve().GetObject() : nullptr;
+			TWeakFuture<FScriptInterface> FutureResolved = InterfaceBinding->ResolveAsScriptInterface();
+			UObject*& ResultParam = (*static_cast<UObject**>(RESULT_PARAM));
+			ResultParam = nullptr;
+			if (FutureResolved.IsReady())
+			{
+				ResultParam = FutureResolved.GetOr(FScriptInterface()).GetObject();
+			}
 		P_NATIVE_END;
 	}
 }

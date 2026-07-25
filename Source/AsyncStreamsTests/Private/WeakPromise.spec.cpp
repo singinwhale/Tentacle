@@ -33,7 +33,7 @@ void WeakPromiseSpec::Define()
 			TWeakPromise<bool> Promise;
 			TWeakFuture<bool> Future = Promise.GetWeakFuture();
 			Promise.SetValue(true);
-			TestTrue("Result", Future.Get().GetValue());
+			TestTrue("Result", Future.GetOr(false));
 		});
 	});
 	Describe("Cancel", [this]
@@ -59,7 +59,7 @@ void WeakPromiseSpec::Define()
 			TWeakPromise<bool> Promise;
 			TWeakFuture<bool> Future = Promise.GetWeakFuture();
 			Promise.Cancel();
-			TestFalse("Result is set", Future.Get().IsSet());
+			TestFalse("Result is set", Future.TryGet().IsSet());
 		});
 	});
 

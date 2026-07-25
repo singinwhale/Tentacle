@@ -7,6 +7,7 @@
 #include "BindConflictBehavior.h"
 #include "DiContainerConcept.h"
 #include "Binding.h"
+#include "ResolverHelper.h"
 
 namespace DI
 {
@@ -21,6 +22,13 @@ namespace DI
 	public:
 		TBindingHelper(TDiContainer& DiContainer) : DiContainer(DiContainer)
 		{
+		}
+
+		/** Begin a resolver binding for T. Chain Lambda / WeakLambda / Static / Shared / UObject / AsyncLambda and optionally AsTransient / ResolveImmediately. */
+		template <class T>
+		TResolverBindingBuilder<T, TDiContainer> Resolver(EBindConflictBehavior ConflictBehavior = GDefaultConflictBehavior)
+		{
+			return TResolverBindingBuilder<T, TDiContainer>(DiContainer, MakeBindingId<T>(), ConflictBehavior);
 		}
 
 		/**

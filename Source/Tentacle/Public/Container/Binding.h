@@ -3,6 +3,7 @@
 #pragma once
 #include "BindingId.h"
 #include "TypeId.h"
+#include "WeakFuture.h"
 #include "StructUtils/InstancedStruct.h"
 
 namespace DI
@@ -10,8 +11,12 @@ namespace DI
 	/**
 	 * Common parent for all bindings.
 	 * This binding has no resolve-capabilities of its own but can do tracking for the Garbage Collector.
+	 *
+	 * Bindings are always owned by the DiContainer via TSharedRef<FBinding>, so deriving from
+	 * TSharedFromThis lets any binding hand out weak self-refs (used e.g. by TResolverBinding to
+	 * keep an async-resolver continuation safe against the binding being destroyed mid-flight).
 	 */
-	class FBinding
+	class FBinding : public TSharedFromThis<FBinding, ESPMode::ThreadSafe>
 	{
 	public:
 		FBinding(FBindingId BindingId)
@@ -46,7 +51,7 @@ namespace DI
 	 * @tparam T
 	 */
 	template <class T>
-	class TUObjectBinding final : public FBinding
+	class TUObjectBinding : public FBinding
 	{
 	public:
 		using Super = FBinding;
@@ -57,12 +62,15 @@ namespace DI
 			: Super(BindingId), UObjectDependency(MoveTemp(InObject))
 		{
 			static_assert(TIsDerivedFrom<T, UObject>::IsDerived);
-			checkf(
-				InObject.GetClass()->IsChildOf(static_cast<UClass*>(BindingId.GetBoundTypeId().TryGetUType())),
-				TEXT("%s is not derived from %s"),
-				*InObject.GetClass()->GetName(),
-				*BindingId.GetBoundTypeId().TryGetUType()->GetName()
-			);
+			if (UObjectDependency)
+			{
+				checkf(
+					UObjectDependency.GetClass()->IsChildOf(static_cast<UClass*>(BindingId.GetBoundTypeId().TryGetUType())),
+					TEXT("%s is not derived from %s"),
+					*UObjectDependency.GetClass()->GetName(),
+					*BindingId.GetBoundTypeId().TryGetUType()->GetName()
+				);
+			}
 		}
 
 		virtual bool IsValid() const override
@@ -70,16 +78,23 @@ namespace DI
 			return ::IsValid(UObjectDependency);
 		}
 
-		TObjectPtr<T> Resolve() const
+		virtual TWeakFuture<TObjectPtr<T>> Resolve() const
 		{
 			check(UObjectDependency);
-			return UObjectDependency;
+			return MakeFulfilledWeakPromise<TObjectPtr<T>>(UObjectDependency).GetWeakFuture();
 		}
 
 		virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 		{
 			Super::AddReferencedObjects(Collector);
 			Collector.AddReferencedObject(UObjectDependency);
+		}
+
+	protected:
+		/** Construct without an instance. Only subclasses (e.g. factory bindings) may use this. */
+		explicit TUObjectBinding(FBindingId BindingId)
+			: TUObjectBinding(MoveTemp(BindingId), nullptr)
+		{
 		}
 	};
 
@@ -101,10 +116,20 @@ namespace DI
 			return ::IsValid(InterfaceDependency.GetObject());
 		}
 
-		const FScriptInterface& Resolve() const
+		TWeakFuture<FScriptInterface> Resolve() const
 		{
 			check(InterfaceDependency.GetObject())
-			return InterfaceDependency;
+			return MakeFulfilledWeakPromise<FScriptInterface>(InterfaceDependency).GetWeakFuture();
+		}
+
+		/**
+		 * Untyped, polymorphic resolve. Required by Blueprint paths that don't have compile-time
+		 * type information. Derived (typed/factory) bindings override this to produce an FScriptInterface
+		 * from their own state.
+		 */
+		virtual TWeakFuture<FScriptInterface> ResolveAsScriptInterface() const
+		{
+			return Resolve();
 		}
 
 		virtual void AddReferencedObjects(FReferenceCollector& Collector) override
@@ -112,10 +137,17 @@ namespace DI
 			Super::AddReferencedObjects(Collector);
 			InterfaceDependency.AddReferencedObjects(Collector);
 		}
+
+	protected:
+		/** Construct without an instance. Only subclasses (e.g. factory bindings) may use this. */
+		explicit FUInterfaceBinding(FBindingId BindingId)
+			: Super(BindingId), InterfaceDependency()
+		{
+		}
 	};
 
 	template <class T>
-	class TUInterfaceDependencyBinding final : public FUInterfaceBinding
+	class TUInterfaceDependencyBinding : public FUInterfaceBinding
 	{
 	public:
 		using Super = FUInterfaceBinding;
@@ -126,28 +158,49 @@ namespace DI
 		{
 		}
 
-		TScriptInterface<T> Resolve() const
+		virtual TWeakFuture<TScriptInterface<T>> Resolve() const
 		{
-			return TScriptInterface<T>(InterfaceDependency.GetObject());
+			check(InterfaceDependency.GetObject())
+			return MakeFulfilledWeakPromise<TScriptInterface<T>>(InterfaceDependency.GetObject()).GetWeakFuture();
+		}
+
+	protected:
+		/** Construct without an instance. Only subclasses (e.g. factory bindings) may use this. */
+		explicit TUInterfaceDependencyBinding(FBindingId BindingId)
+			: Super(MoveTemp(BindingId))
+		{
 		}
 	};
 
 	template <class T>
-	class TSharedNativeDependencyBinding final : public FBinding
+	class TSharedNativeDependencyBinding : public FBinding
 	{
 	public:
 		using Super = FBinding;
 
-		TSharedRef<T> SharedNativeDependency;
+		TSharedPtr<T> SharedNativeDependency;
 
 		TSharedNativeDependencyBinding(FBindingId BindingId, TSharedRef<T> InSharedInstance)
 			: Super(BindingId), SharedNativeDependency(InSharedInstance)
 		{
 		}
 
-		TSharedRef<T> Resolve() const
+		virtual bool IsValid() const override
 		{
-			return SharedNativeDependency;
+			return SharedNativeDependency.IsValid();
+		}
+
+		virtual TWeakFuture<TSharedRef<T>> Resolve() const
+		{
+			check(SharedNativeDependency.IsValid());
+			return MakeFulfilledWeakPromise<TSharedRef<T>>(SharedNativeDependency.ToSharedRef()).GetWeakFuture();
+		}
+
+	protected:
+		/** Construct without an instance. Only subclasses (e.g. factory bindings) may use this. */
+		explicit TSharedNativeDependencyBinding(FBindingId BindingId)
+			: Super(BindingId), SharedNativeDependency()
+		{
 		}
 	};
 
@@ -194,14 +247,32 @@ namespace DI
 			StructData.AddStructReferencedObjects(Collector);
 		}
 
-		virtual void CopyRawData(void* OutData, int32 OutDataSize) override
+		virtual void CopyRawData(void* OutData, int32 InSizeOfOutData) override
 		{
+			// Use StructData.IsValid() instead of this->IsValid() because the binding should not get into other's hands in an invalid state.
+			if (!StructData.IsValid())
+				return;
+
 			const UScriptStruct* StructClass = GetStruct();
-			check(StructClass->GetStructureSize() <= OutDataSize);
+			check(StructClass->GetStructureSize() <= InSizeOfOutData);
 			StructClass->CopyScriptStruct(OutData, StructData.GetMemory(), 1);
-		};
+		}
+
+		virtual bool IsValid() const override
+		{
+			return StructData.IsValid();
+		}
 
 	protected:
+		/**
+		 * Construct with type only, no initial data. Only subclasses (e.g. factory bindings) may use this.
+		 */
+		FUStructBinding(UScriptStruct* StructType, FName BindingName)
+			: Super(FBindingId(FTypeId(StructType), BindingName))
+		{
+			// do not default initialize so we can use IsValid to track init state.
+		}
+
 		/**
 		 * Manages the inner struct data.
 		 * We could inline the data to avoid the secondary allocation, but we would basically reimplement FInstancedStruct.
@@ -214,7 +285,7 @@ namespace DI
 	 * Native types have to be referenced through shared pointers.
 	 */
 	template <class T>
-	class TTypedStructBinding final : public FUStructBinding
+	class TTypedStructBinding : public FUStructBinding
 	{
 	public:
 		using Super = FUStructBinding;
@@ -225,9 +296,20 @@ namespace DI
 			checkf(T::StaticStruct() == BindingId.GetBoundTypeId().TryGetUType(), TEXT("Inherited struct types are not supported at this moment"));
 		}
 
-		const T& Resolve() const
+		virtual TWeakFuture<const T&> Resolve() const
 		{
-			return StructData.Get<T>();
+			if (!IsValid())
+				return {};
+
+			return MakeFulfilledWeakPromise<const T&>(StructData.Get<T>()).GetWeakFuture();
+		}
+
+	protected:
+		/** Construct without an instance. Only subclasses (e.g. factory bindings) may use this. */
+		explicit TTypedStructBinding(FBindingId BindingId)
+			: Super(T::StaticStruct(), BindingId.GetBindingName())
+		{
+			checkf(T::StaticStruct() == BindingId.GetBoundTypeId().TryGetUType(), TEXT("Inherited struct types are not supported at this moment"));
 		}
 	};
 

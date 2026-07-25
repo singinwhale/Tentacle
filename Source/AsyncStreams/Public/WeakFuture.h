@@ -80,6 +80,21 @@ public:
 	}
 
 	/**
+	 * Blocks the calling thread until the future result is available.
+	 *
+	 * @return true if the result is available, false otherwise.
+	 * @see IsComplete
+	 */
+	bool BlockUntilReady() const
+	{
+		while (!IsComplete())
+		{
+			WaitFor(FTimespan::MaxValue());
+		}
+		return IsComplete();
+	}
+
+	/**
 	 * Set a continuation to be called on completion of the promise
 	 * @param Continuation
 	 */
@@ -195,23 +210,18 @@ public:
 
 public:
 	/**
-	 * Gets the result (will block the calling thread until the result is available).
+	 * Gets the result or unset of not ready.
 	 *
 	 * @return The result value.
 	 * @see EmplaceResult
 	 */
 	const TOptional<InternalResultType>& GetResult() const UE_LIFETIMEBOUND
 	{
-		while (!IsComplete())
-		{
-			WaitFor(FTimespan::MaxValue());
-		}
-
 		return Result;
 	}
 
 	/**
-	 * Gets the result (will block the calling thread until the result is available).
+	 * Gets the result or unset if not ready.
 	 *
 	 * @return The result value.
 	 * @see EmplaceResult
@@ -286,7 +296,12 @@ public:
 
 	bool WasCanceled() const
 	{
-		return State->WasCanceled();
+		return IsValid() && State->WasCanceled();
+	}
+
+	bool WasSuccessful() const
+	{
+		return IsValid() && State->IsComplete() && !State->WasCanceled();
 	}
 
 	/**
@@ -401,7 +416,7 @@ protected:
 	/**
 	 * Set a completion callback that will be called once the future is canceled
 	 *	or immediately if already canceled.
-	 *	
+	 *
 	 * If the future succeeds the continuation will *never* be called. The hereby returned future will still be canceled however, which you can react to using OrElse.
 	 * This acts like a negation on the future. A canceled future will be turned into a successful future while a successful future will be turned into a canceled future.
 	 *
@@ -412,12 +427,22 @@ protected:
 	auto OrElse(Func Continuation);
 
 	/**
-	 * Convenience wrapper for Then that
-	 *	set a completion callback that will be called once the future completes
-	 *	or immediately if already completed.
+	 * Set a side-effect callback that will be called once the future is canceled or immediately if already canceled.
+	 * The cancellation is propagated to the returned future. A successful future is forwarded as-is.
+	 *
+	 * @param SideEffect a void(void) callback invoked on cancellation
+	 * @return A future of the same value type that is canceled if this future is canceled (after the side effect runs) and successful with the same value otherwise.
+	 */
+	template <typename SideEffectFunc>
+	auto OnCanceled(SideEffectFunc SideEffect);
+
+	/**
+	 * Map the future's result. The continuation receives the resolved value (or empty TOptional on cancellation)
+	 * and must return a TOptional<NewType>. The set-ness of the returned optional determines whether the resulting
+	 * future is successful (set) or canceled (unset).
 	 *	Guaranteed to be called eventually - even if the future has been canceled.
-	 * @param Continuation a continuation taking an argument of type InternalResultType
-	 * @return nothing at the moment but could return another future to allow future chaining
+	 * @param Continuation a continuation taking an argument of type TOptional<InternalResultType> (or bool for void) and returning a TOptional<NewType>
+	 * @return a new TWeakFuture<NewType> that is successful with the returned optional's value, or canceled if the returned optional is unset.
 	 */
 	template <typename Func>
 	auto Next(Func Continuation);
@@ -490,7 +515,29 @@ public:
 	 * @return The result.
 	 * @note Not equivalent to std::future::get(). The future remains valid.
 	 */
-	const TOptional<ResultType>& Get() const UE_LIFETIMEBOUND
+	const TOptional<ResultType>& TryGet() const UE_LIFETIMEBOUND
+	{
+		return this->GetState()->GetResult();
+	}
+
+	/**
+	 * Gets the future's result by const reference or a fallback if the future is not ready.
+	 *
+	 * @return The result.
+	 * @note Not equivalent to std::future::get(). The future remains valid.
+	 */
+	const ResultType& GetOr(const ResultType& DefaultValue) const UE_LIFETIMEBOUND
+	{
+		return this->GetState()->GetResult().Get(DefaultValue);
+	}
+
+	/**
+	 * Gets the future's result by non-const reference.
+	 *
+	 * @return The result.
+	 * @note Not equivalent to std::future::get(). The future remains valid.
+	 */
+	TOptional<ResultType>& TryGetMutable() UE_LIFETIMEBOUND
 	{
 		return this->GetState()->GetResult();
 	}
@@ -501,9 +548,10 @@ public:
 	 * @return The result.
 	 * @note Not equivalent to std::future::get(). The future remains valid.
 	 */
-	TOptional<ResultType>& GetMutable() UE_LIFETIMEBOUND
+	ResultType& GetMutableOr(ResultType& Fallback) UE_LIFETIMEBOUND
 	{
-		return this->GetState()->GetResult();
+		TOptional<ResultType>& Result = this->GetState()->GetResult();
+		return Result ? Result.GetValue() : Fallback;
 	}
 
 	/**
@@ -533,6 +581,7 @@ public:
 	using BaseType::Reset;
 	using BaseType::AndThen;
 	using BaseType::OrElse;
+	using BaseType::OnCanceled;
 };
 
 
@@ -575,26 +624,50 @@ public:
 	~TWeakFuture() = default;
 
 public:
+
 	/**
-	 * Gets the future's result.
+	 * Gets the future's result by const reference.
 	 *
 	 * @return The result.
 	 * @note Not equivalent to std::future::get(). The future remains valid.
 	 */
-	TOptional<ResultType&> Get() const
+	const TOptional<ResultType&>& TryGet() const UE_LIFETIMEBOUND
 	{
-		return *this->GetState()->GetResult();
+		return this->GetState()->GetResult();
 	}
 
 	/**
-	 * Gets the future's result.
+	 * Gets the future's result by const reference or a fallback if the future is not ready.
 	 *
 	 * @return The result.
 	 * @note Not equivalent to std::future::get(). The future remains valid.
 	 */
-	TOptional<ResultType&> GetMutable()
+	const ResultType& GetOr(const ResultType& DefaultValue) const UE_LIFETIMEBOUND
+	{
+		return this->GetState()->GetResult().Get(DefaultValue);
+	}
+
+	/**
+	 * Gets the future's result by non-const reference.
+	 *
+	 * @return The result.
+	 * @note Not equivalent to std::future::get(). The future remains valid.
+	 */
+	TOptional<ResultType&>& TryGetMutable() UE_LIFETIMEBOUND
 	{
 		return this->GetState()->GetResult();
+	}
+
+	/**
+	 * Gets the future's result by non-const reference.
+	 *
+	 * @return The result.
+	 * @note Not equivalent to std::future::get(). The future remains valid.
+	 */
+	ResultType& GetMutableOr(ResultType& Fallback) UE_LIFETIMEBOUND
+	{
+		TOptional<ResultType>& Result = this->GetState()->GetResult();
+		return Result ? Result.GetValue() : Fallback;
 	}
 
 	/**
@@ -624,6 +697,7 @@ public:
 	using BaseType::Reset;
 	using BaseType::AndThen;
 	using BaseType::OrElse;
+	using BaseType::OnCanceled;
 };
 
 
@@ -678,6 +752,7 @@ public:
 	using BaseType::Reset;
 	using BaseType::AndThen;
 	using BaseType::OrElse;
+	using BaseType::OnCanceled;
 };
 
 /**
@@ -1619,31 +1694,123 @@ auto TWeakFutureBase<InternalResultType>::OrElse(Func Continuation) //-> TWeakFu
 	return FutureResult;
 }
 
-// Next implementation
+// OnCanceled implementation
 template <typename InternalResultType>
-template <typename Func>
-auto TWeakFutureBase<InternalResultType>::Next(Func Continuation) //-> TWeakFuture<decltype(Continuation(Consume()))>
+template <typename SideEffectFunc>
+auto TWeakFutureBase<InternalResultType>::OnCanceled(SideEffectFunc SideEffect)
 {
-	return this->Then(
-		[Continuation = MoveTemp(Continuation)](TWeakFuture<InternalResultType> Self) mutable
+	check(IsValid());
+
+	TWeakPromise<InternalResultType> Promise;
+	TWeakFuture<InternalResultType> FutureResult = Promise.GetWeakFuture();
+	TUniqueFunction<void()> Callback = [PromiseCapture = MoveTemp(Promise), SideEffectCapture = MoveTemp(SideEffect), StateCapture = this->State]() mutable
+	{
+		if (StateCapture->WasCanceled())
+		{
+			SideEffectCapture();
+			PromiseCapture.Cancel();
+		}
+		else
 		{
 			if constexpr (std::is_same_v<InternalResultType, void>)
 			{
-				return Continuation(!Self.WasCanceled());
+				PromiseCapture.SetValue();
 			}
 			else
 			{
-				if (Self.WasCanceled())
+				PromiseCapture.EmplaceValue(MoveTempIfPossible(StateCapture->GetResult().GetValue()));
+			}
+		}
+	};
+
+	StateType MovedState = MoveTemp(this->State);
+	MovedState->SetContinuation(MoveTemp(Callback));
+	return FutureResult;
+}
+
+// Next implementation
+template <typename InternalResultType>
+template <typename Func>
+auto TWeakFutureBase<InternalResultType>::Next(Func Continuation)
+{
+	check(IsValid());
+	using FContinuationArg = std::conditional_t<std::is_same_v<InternalResultType, void>, bool, TOptional<InternalResultType>>;
+	using FContinuationReturnType = decltype(Continuation(std::declval<FContinuationArg>()));
+
+	if constexpr (std::is_same_v<FContinuationReturnType, void>)
+	{
+		// Void-returning continuation: side-effect only. The resulting TWeakFuture<void> mirrors the
+		// source's success/cancellation state. Useful when no further chaining is needed.
+		return this->Then(
+			[Continuation = MoveTemp(Continuation)](TWeakFuture<InternalResultType> Self) mutable
+			{
+				if constexpr (std::is_same_v<InternalResultType, void>)
 				{
-					return Continuation(TOptional<InternalResultType>{});
+					Continuation(!Self.WasCanceled());
 				}
 				else
 				{
-					return Continuation(Self.Consume());
+					if (Self.WasCanceled())
+					{
+						Continuation(TOptional<InternalResultType>{});
+					}
+					else
+					{
+						Continuation(Self.Consume());
+					}
 				}
 			}
-		}
-	);
+		);
+	}
+	else
+	{
+		static_assert(TIsTOptional_V<FContinuationReturnType>, "Next continuation must return either void or TOptional<T>. An unset return value cancels the resulting future.");
+		using FNewType = typename FContinuationReturnType::ElementType;
+
+		TWeakPromise<FNewType> Promise;
+		TWeakFuture<FNewType> FutureResult = Promise.GetWeakFuture();
+		TUniqueFunction<void()> Callback = [PromiseCapture = MoveTemp(Promise), ContinuationCapture = MoveTemp(Continuation), StateCapture = this->State]() mutable
+		{
+			FContinuationReturnType Result = [&]() -> FContinuationReturnType
+			{
+				if constexpr (std::is_same_v<InternalResultType, void>)
+				{
+					return ContinuationCapture(!StateCapture->WasCanceled());
+				}
+				else
+				{
+					if (StateCapture->WasCanceled())
+					{
+						return ContinuationCapture(TOptional<InternalResultType>{});
+					}
+					else
+					{
+						return ContinuationCapture(MoveTemp(StateCapture->GetResult()));
+					}
+				}
+			}();
+
+			if (Result.IsSet())
+			{
+				if constexpr (std::is_reference_v<FNewType>)
+				{
+					PromiseCapture.EmplaceValue(Result.GetValue());
+				}
+				else
+				{
+					PromiseCapture.EmplaceValue(MoveTempIfPossible(Result.GetValue()));
+				}
+			}
+			else
+			{
+				PromiseCapture.Cancel();
+			}
+		};
+
+		StateType MovedState = MoveTemp(this->State);
+		MovedState->SetContinuation(MoveTemp(Callback));
+		return FutureResult;
+	}
 }
 
 /** Helper to create and immediately fulfill a promise */
@@ -1655,8 +1822,24 @@ TWeakPromise<ResultType> MakeFulfilledWeakPromise(ArgTypes&&... Args)
 	return Promise;
 }
 
+/** Helper to create and immediately cancel a promise. */
+template <typename ResultType>
+TWeakPromise<ResultType> MakeCanceledWeakPromise()
+{
+	TWeakPromise<ResultType> Promise;
+	Promise.Cancel();
+	return Promise;
+}
 
-/** Helper to create and immediately fulfill a promise */
+/** Helper to create a future that is already canceled. */
+template <typename ResultType>
+TWeakFuture<ResultType> MakeCanceledWeakFuture()
+{
+	return MakeCanceledWeakPromise<ResultType>().GetWeakFuture();
+}
+
+
+/** Helper to create a pair of Promise and Future. Can be used with structured bindings. */
 template <typename ResultType>
 TPair<TWeakPromise<ResultType>, TWeakFuture<ResultType>> MakeWeakPromisePair()
 {
@@ -1664,7 +1847,7 @@ TPair<TWeakPromise<ResultType>, TWeakFuture<ResultType>> MakeWeakPromisePair()
 	return {MoveTemp(Promise), Promise.GetWeakFuture()};
 }
 
-/** Helper to create and immediately fulfill a promise set */
+/** Helper to create a pair of Promise and Future Sets. Can be used with structured bindings. */
 template <typename... ResultTypes>
 TPair<TWeakPromiseSet<ResultTypes...>, TWeakFutureSet<ResultTypes...>> MakeWeakPromiseSetPair()
 {
@@ -1758,10 +1941,10 @@ TWeakFutureValues<ValTypes...> AwaitAllInTupleOrDefault(TTuple<TWeakFuture<ValTy
 {
 	TWeakFuture<TTuple<ValTypes...>> ValueOrDefaultFuture =
 		AwaitAllInTuple(MoveTemp(Futures))
-		.Next([](TOptional<TTuple<TOptional<ValTypes>...>> Values) -> TTuple<ValTypes...>
+		.Next([](TOptional<TTuple<TOptional<ValTypes>...>> Values) -> TOptional<TTuple<ValTypes...>>
 		{
 			if (!Values.IsSet())
-				return {};
+				return TTuple<ValTypes...>{};
 
 			return TransformTuple(*Values, []<typename T>(const TOptional<T>& Result) -> T
 			{

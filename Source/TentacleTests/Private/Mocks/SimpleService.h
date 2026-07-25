@@ -15,6 +15,11 @@ class USimpleUService : public UObject
 
 public:
 	int32 A;
+
+	static USimpleUService* Identity(USimpleUService* SimpleUService)
+	{
+		return SimpleUService;
+	}
 };
 
 USTRUCT()
@@ -78,9 +83,30 @@ class USimpleInterfaceImplementation : public UObject, public ISimpleInterface
 public:
 	//  - ISimpleInterface
 	virtual int32 GetA() const override;
-	// -- 
+	// --
 
 	int32 A;
+};
+
+UCLASS()
+class USimpleFactory : public UObject
+{
+	GENERATED_BODY()
+
+public:
+	TObjectPtr<USimpleUService> MakeSimpleService(TObjectPtr<USimpleUService> InService)
+	{
+		return InService;
+	}
+};
+
+class FNativeFactory
+{
+public:
+	TObjectPtr<USimpleUService> MakeSimpleService(TObjectPtr<USimpleUService> InService)
+	{
+		return InService;
+	}
 };
 
 namespace DI

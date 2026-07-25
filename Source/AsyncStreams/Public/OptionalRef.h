@@ -3,6 +3,13 @@
 #pragma once
 #include "Misc/Optional.h"
 
+#ifdef TENTACLE_OPTIONALREF_INCLUDEPATH
+#define TENTACLE_CODEBASE_HAS_OPTIONALREF
+#include TENTACLE_OPTIONALREF_INCLUDEPATH
+#endif
+
+#ifndef TENTACLE_CODEBASE_HAS_OPTIONALREF
+
 template <typename OptionalType>
 struct TOptional<OptionalType&>
 {
@@ -167,3 +174,5 @@ public:
 private:
 	OptionalType* OptionalRefPtr;
 };
+
+#endif
